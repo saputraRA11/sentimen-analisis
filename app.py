@@ -1,6 +1,6 @@
+
 from pathlib import Path
 import cgi
-import html as html_lib
 import io
 import json
 import logging
@@ -18,13 +18,10 @@ from urllib.request import urlopen
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 import threading
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 try:
-    if os.environ.get("ABSA_SKIP_MODEL_RUNTIME", "").lower() in {"1", "true", "yes"}:
-        raise ImportError("Model runtime dilewati untuk preview antarmuka.")
     import joblib
     from tensorflow.keras.models import load_model
     from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -33,7 +30,7 @@ except Exception:
     load_model = None
     pad_sequences = None
 
-st.set_page_config(page_title="Dashboard ABSA Livin", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Dashboard ABSA Livin", layout="wide", initial_sidebar_state="collapsed")
 
 DEFAULT_DASHBOARD_FILE = Path("data_test_prediksi.csv")
 DEFAULT_LABELED_FILE = Path("V4_LABELED_DATASET_FINAL.csv")
@@ -47,7 +44,6 @@ ENCODER_SENTIMEN_FILE = MODEL_DIR / "encoder_sentimen.joblib"
 MODEL_CONFIG_FILE = MODEL_DIR / "dashboard_model_config.joblib"
 LOG_DIR = Path("logs")
 LOG_FILE = LOG_DIR / "dashboard_model.log"
-ALLOW_MODEL_UPLOADS = os.environ.get("ALLOW_MODEL_UPLOADS", "").lower() in {"1", "true", "yes"}
 MODEL_UPLOADS = {
     "model_aspek": MODEL_ASPEK_FILE,
     "model_sentimen": MODEL_SENTIMEN_FILE,
@@ -375,7 +371,7 @@ def predict_with_model(review_text, job_id=None):
         )
         return {
             "ok": False,
-            "message": "Model default belum siap dipakai. Pastikan seluruh artefak di folder models/ tersedia dan runtime TensorFlow berhasil dimuat.",
+            "message": "Model belum siap dipakai. Jalankan cell penyimpanan artefak model, atau upload artefak model dari panel Unggah Model di sidebar.",
             "missing": artifacts.get("missing", []),
             "missing_runtime": artifacts.get("missing_runtime", []),
         }
@@ -628,7 +624,15 @@ def get_prediction_job(job_id):
     return job
 
 
-def normalize_dataset(raw):
+@st.cache_data
+def load_dataset():
+    candidate_files = [DEFAULT_DASHBOARD_FILE, DEFAULT_LABELED_FILE]
+    source_file = next((path for path in candidate_files if path.exists()), None)
+    if source_file is None:
+        return pd.DataFrame(columns=["Ulasan", "Aspek", "Sentimen"])
+
+    raw = pd.read_csv(source_file)
+
     normalized_cols = {str(col).strip().lower(): col for col in raw.columns}
     if {"ulasan", "aspek", "sentimen"}.issubset(normalized_cols):
         df = raw.copy()
@@ -646,7 +650,8 @@ def normalize_dataset(raw):
             "Sentimen": raw["sentimen_llm"],
         })
     else:
-        raise ValueError("Format CSV tidak sesuai. Gunakan kolom ulasan, aspek, sentimen.")
+        st.error("Format CSV tidak sesuai. Gunakan kolom ulasan, aspek, sentimen.")
+        st.stop()
 
     df["Ulasan"] = df["Ulasan"].astype(str)
     df["Aspek"] = df["Aspek"].map(clean_aspect)
@@ -667,20 +672,6 @@ def normalize_dataset(raw):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df.dropna(subset=["Ulasan"])
-
-
-@st.cache_data
-def load_dataset():
-    candidate_files = [DEFAULT_DASHBOARD_FILE, DEFAULT_LABELED_FILE]
-    source_file = next((path for path in candidate_files if path.exists()), None)
-    if source_file is None:
-        return pd.DataFrame(columns=["Ulasan", "Aspek", "Sentimen"])
-
-    try:
-        return normalize_dataset(pd.read_csv(source_file))
-    except ValueError as exc:
-        st.error(str(exc))
-        st.stop()
 
 
 def compute_payload(df):
@@ -769,7 +760,6 @@ def compute_payload(df):
 
 def build_html(payload):
     data_json = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
-    model_upload_style = "" if ALLOW_MODEL_UPLOADS else "display:none;"
     return f"""
 <!DOCTYPE html>
 <html lang="id">
@@ -914,7 +904,7 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
       <button class="nav-btn" data-page="detail"><span class="material-symbols-outlined">table_view</span>Daftar Ulasan</button>
     </nav>
     <div class="side-actions">
-      <div class="model-upload-box" style="{model_upload_style}">
+      <div class="model-upload-box">
         <h4>Unggah Model</h4>
         <p class="format-note">Opsional. Jika kosong, dashboard memakai artefak lokal bawaan.</p>
         <div class="model-file-list">
@@ -1002,14 +992,14 @@ function resultSummary(aspect, sentiment, confidence, note='') {{ const cls = se
 function bars(rows) {{ const max=Math.max(...rows.map(r=>r.jumlah),1); return `<div class="bar-list">${{rows.map(r=>`<div class="bar-row"><div class="bar-label">${{r.aspek}}</div><div class="bar-track"><div class="bar-fill" style="width:${{r.jumlah/max*100}}%"></div></div><div>${{fmt.format(r.jumlah)}}</div></div>`).join('')}}</div>`; }}
 function donut() {{ const pos=currentData.positiveRate*100; const neg=currentData.negativeRate*100; const net=100-neg; return `<div class="donut-wrap"><div class="donut" style="--pos:${{pos}}%;--net:${{net}}%"><div class="donut-center"><b>${{fmt.format(currentData.total)}}</b><span>Total</span></div></div></div><div class="legend"><span class="legend-item"><i class="swatch" style="background:#16a34a"></i>Positif</span><span class="legend-item"><i class="swatch" style="background:#335f9c"></i>Netral</span><span class="legend-item"><i class="swatch" style="background:#ba1a1a"></i>Negatif</span></div>`; }}
 function stackBars() {{ return `<div class="stack-chart">${{currentData.cross.map(r=>{{ const total=(r.Positif||0)+(r.Netral||0)+(r.Negatif||0)||1; return `<div class="stack-row"><div class="bar-label">${{r.Aspek}}</div><div class="stack-bar"><div class="seg-pos" style="width:${{(r.Positif||0)/total*100}}%"></div><div class="seg-net" style="width:${{(r.Netral||0)/total*100}}%"></div><div class="seg-neg" style="width:${{(r.Negatif||0)/total*100}}%"></div></div></div>` }}).join('')}}</div>`; }}
-function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Gunakan panel prediksi Streamlit di atas dashboard untuk analisis real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Prediksi Real-Time</h3><p id="modelStatusText" class="body-muted" style="margin:0">Model bawaan dimuat dari folder models/ pada repo. Form prediksi aktif tersedia di panel Streamlit di atas dashboard.</p></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Status Model</h3><div id="predictionResult">${{processingSummary('Model bawaan digunakan tanpa upload model.')}}</div></div></div>`; refreshModelStatus(); }}
+function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Analisis sentimen dan aspek secara real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Masukkan Teks Ulasan</h3><textarea id="reviewText" placeholder="Ketik atau paste ulasan pengguna di sini..."></textarea><p id="modelStatusText" class="body-muted" style="margin:14px 0 0">Mengecek kesiapan model...</p><div style="display:flex;justify-content:flex-end;margin-top:28px"><button id="predictBtn" class="primary-btn" onclick="predictReview()" disabled><span class="material-symbols-outlined">analytics</span><span id="predictBtnText">Menyiapkan Model</span></button></div></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Hasil Analisis Aspek & Sentimen</h3><div id="predictionResult">${{resultSummary('functional suitability','Positif',0.94)}}</div></div></div>`; refreshModelStatus(); }}
 function humanError(message, detail='') {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi belum bisa diproses</div><div class="prediction-result-confidence">${{message}}${{detail?'<br><span style="font-weight:600">'+detail+'</span>':''}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 function processingSummary(message) {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi sedang diproses</div><div class="prediction-result-confidence">${{message}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 async function readJsonResponse(res) {{ const raw=await res.text(); try {{ return JSON.parse(raw); }} catch(err) {{ return {{ok:false, message:'Server belum mengirim respons prediksi yang valid.', detail:'Biasanya Streamlit perlu dijalankan ulang, endpoint /predict belum aktif, atau artefak model belum lengkap.'}}; }} }}
 function setPredictButton(enabled, label) {{ const btn=document.getElementById('predictBtn'); const text=document.getElementById('predictBtnText'); if(btn) btn.disabled=!enabled; if(text) text.textContent=label; }}
-async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); if(label) label.textContent='Model bawaan dimuat oleh Streamlit. Gunakan panel prediksi di atas dashboard.'; setPredictButton(false,'Gunakan Panel Streamlit'); }}
+async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); try {{ const res=await fetch('/model-status'); const out=await readJsonResponse(res); if(out.ready) {{ if(label) label.textContent='Model siap digunakan.'; setPredictButton(true,'Prediksi Ulasan'); return; }} if(label) label.textContent=out.message||'Model sedang disiapkan.'; setPredictButton(false, out.state==='error'?'Model Belum Siap':'Menyiapkan Model'); if(out.state==='idle'||out.state==='loading') setTimeout(refreshModelStatus, 1200); }} catch(err) {{ if(label) label.textContent='Status model belum bisa dicek.'; setPredictButton(false,'Model Belum Siap'); }} }}
 async function pollPredictionResult(jobId, startedAt) {{ const box=document.getElementById('predictionResult'); try {{ const res=await fetch('/predict-result?id='+encodeURIComponent(jobId)); const out=await readJsonResponse(res); if(out.state==='queued'||out.state==='running') {{ const sec=out.running_seconds || Math.max(1, Math.round((Date.now()-startedAt)/1000)); const stage=out.stage_message || out.message || 'Model sedang memproses ulasan.'; const stageName=out.stage ? `Tahap: ${{out.stage}} · ` : ''; box.innerHTML=processingSummary(`${{stageName}}${{stage}} (${{sec}} dtk)`); setTimeout(()=>pollPredictionResult(jobId, startedAt), 700); return; }} if(out.state==='done' && out.result && out.result.ok) {{ const r=out.result; const note=`Aspek: ${{Math.round((r.aspectConfidence||r.confidence||0)*100)}}% · Sentimen: ${{Math.round((r.sentimentConfidence||r.confidence||0)*100)}}%`; box.innerHTML=resultSummary(r.aspect, r.sentiment, r.confidence||0, note); setPredictButton(true,'Prediksi Ulasan'); return; }} const err=(out.result&&out.result.message)||out.message||'Prediksi belum bisa diproses.'; box.innerHTML=humanError(err); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil mengambil hasil prediksi.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
-async function predictReview() {{ const box=document.getElementById('predictionResult'); if(box) box.innerHTML=processingSummary('Gunakan panel prediksi Streamlit di atas dashboard.'); }}
+async function predictReview() {{ const raw=document.getElementById('reviewText').value; const box=document.getElementById('predictionResult'); if(!raw.trim()) {{ box.innerHTML=humanError('Teks ulasan masih kosong.'); return; }} setPredictButton(false,'Memproses'); box.innerHTML=processingSummary('Mengirim ulasan ke server model...'); try {{ const res=await fetch('/predict-job', {{method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{text:raw}})}}); const out=await readJsonResponse(res); if(!res.ok || !out.ok) {{ box.innerHTML=humanError(out.message||'Model belum siap dipakai.'); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); return; }} pollPredictionResult(out.job_id, Date.now()); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil terhubung ke model.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
 function renderOverview() {{ document.getElementById('page-overview').innerHTML = `${{pageHead('Ikhtisar Data',`Ringkasan komprehensif sentimen ulasan pengguna Livin' by Mandiri.`)}}${{globalKpis()}}<div class="grid-12"><div class="col-4 card panel"><h3 class="panel-title">Komposisi Sentimen</h3>${{donut()}}</div><div class="col-8 card panel"><h3 class="panel-title">Distribusi Aspek</h3>${{bars(currentData.aspectCounts)}}</div><div class="col-12 card panel"><h3 class="panel-title">Sentimen per Aspek</h3>${{stackBars()}}</div></div>`; }}
 function selectIpaAspect(aspect) {{ selectedIpaAspect=aspect; updateIpaSelection(); }}
 function clearIpaAspect() {{ selectedIpaAspect=null; updateIpaSelection(); }}
@@ -1039,14 +1029,12 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
 document.getElementById('downloadTemplate').addEventListener('click',()=>{{ const blob=new Blob([currentData.templateCsv],{{type:'text/csv'}}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='template_upload_ulasan.csv'; a.click(); }});
 function parseCsv(text) {{ const lines=text.trim().replaceAll(String.fromCharCode(13),'').split(String.fromCharCode(10)); const headers=lines[0].split(',').map(h=>h.trim()); return lines.slice(1).map(line=>{{ const vals=line.match(/("[^"]*(?:""[^"]*)*"|[^,]*)/g).filter((_,i)=>i%2===0).map(v=>v.replace(/^"|"$/g,'').replace(/""/g,'"')); const obj={{}}; headers.forEach((h,i)=>obj[h]=vals[i]||''); return obj; }}); }}
 
-const modelUploadEnabled = {str(ALLOW_MODEL_UPLOADS).lower()};
 const modelFileNameBindings = [
   ['modelAspekFile','modelAspekName'], ['modelSentimenFile','modelSentimenName'], ['tokenizerFile','tokenizerName'],
   ['encoderAspekFile','encoderAspekName'], ['encoderSentimenFile','encoderSentimenName']
 ];
 modelFileNameBindings.forEach(([inputId,nameId])=>{{
   const input=document.getElementById(inputId); const label=document.getElementById(nameId);
-  if(!input || !label) return;
   input.addEventListener('change',()=>{{ label.textContent=input.files[0]?.name || 'Belum dipilih'; }});
 }});
 async function uploadModelFiles() {{
@@ -1063,8 +1051,7 @@ async function uploadModelFiles() {{
     status.textContent='Upload berhasil. Tekan Prediksi Ulasan untuk memakai model terbaru.';
   }} catch(err) {{ status.textContent='Upload gagal: '+err.message+'. Jalankan ulang Streamlit lalu coba lagi.'; }}
 }}
-const uploadModelBtn = document.getElementById('uploadModelBtn');
-if(modelUploadEnabled && uploadModelBtn) uploadModelBtn.addEventListener('click', uploadModelFiles);
+document.getElementById('uploadModelBtn').addEventListener('click', uploadModelFiles);
 
 document.getElementById('csvInput').addEventListener('change', e=>{{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{{ const rows=parseCsv(reader.result); const reviews=rows.map(r=>{{ const sent=r.sentimen||r.Sentimen||r.sentimen_llm; return {{...r, Ulasan:r.ulasan||r.Ulasan||r.final_text, Aspek:(r.aspek||r.Aspek||r.aspek_llm||'').toLowerCase(), Sentimen:sent==='1'||sent==='Positif'?'Positif':sent==='2'||sent==='Netral'?'Netral':sent==='0'||sent==='Negatif'?'Negatif':sent}}; }}).filter(r=>r.Ulasan); currentData=computeDashboardData(reviews); alert('CSV berhasil dibaca dan kalkulasi dashboard sudah diperbarui.'); showPage('overview'); }}; reader.readAsText(file); }});
 showPage('prediksi');
@@ -1074,455 +1061,19 @@ showPage('prediksi');
 """
 
 
+df = load_dataset()
+payload = compute_payload(df)
+
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Work+Sans:wght@600;700&display=swap');
-    :root {
-      --navy:#002752; --ink:#0b1c30; --muted:#737781; --line:#c3c6d1; --canvas:#f8f9ff;
-      --primary-container:#003d79; --surface-container:#e5eeff; --surface-low:#eff4ff;
-      --yellow:#fcb812; --positive:#16a34a; --neutral:#335f9c; --negative:#ba1a1a;
-    }
-    header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"] { display:none !important; }
-    html, body, [class*="css"] { font-family:'Public Sans', Arial, sans-serif; }
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background:var(--canvas) !important; color:var(--ink) !important; }
-    .block-container { max-width:1280px !important; padding:0 32px 64px !important; }
-
-    section[data-testid="stSidebar"] { width:260px !important; min-width:260px !important; background:var(--canvas) !important; border-right:1px solid var(--line); }
-    section[data-testid="stSidebar"] > div { width:260px !important; }
-    [data-testid="stSidebarContent"] { padding:0 !important; }
-    [data-testid="stSidebarHeader"] { display:none !important; }
-    [data-testid="stSidebarUserContent"] { padding:25px 12px 22px !important; }
-    [data-testid="stSidebarCollapseButton"] { display:none !important; }
-    .side-brand { color:var(--navy); font-family:'Work Sans', sans-serif; font-size:20px; line-height:28px; font-weight:700; margin:0 8px; }
-    .side-sub { color:#434750; font-size:12px; line-height:16px; letter-spacing:.05em; font-weight:600; margin:0 8px 30px; }
-    .side-nav { display:flex; flex-direction:column; gap:5px; }
-    .side-nav-item { color:#4c515c; border-radius:7px; padding:10px 11px; font-size:12px; line-height:18px; font-weight:700; }
-    .side-nav-item.active { color:var(--navy); background:var(--surface-low); border-right:4px solid var(--navy); }
-    .nav-icon { display:inline-block; width:22px; color:var(--navy); }
-    .side-section-title { color:var(--ink); font-size:12px; font-weight:800; margin:27px 6px 3px; }
-    .side-helper { color:#656b76; font-size:9px; line-height:13px; margin:0 6px 12px; }
-    .artifact { display:flex; justify-content:space-between; align-items:center; gap:7px; background:white; border:1px solid var(--line); border-radius:7px; padding:6px 7px; margin:5px 0; }
-    .artifact > div { min-width:0; }
-    .artifact strong { display:block; color:var(--ink); font-size:9px; line-height:12px; }
-    .artifact > div span { display:block; max-width:105px; overflow:hidden; color:#68707d; font-size:8px; line-height:11px; text-overflow:ellipsis; white-space:nowrap; }
-    .artifact-check { flex:0 0 auto; width:30px; height:30px; display:grid; place-items:center; border:1px solid var(--line); border-radius:8px; background:var(--yellow); color:var(--navy) !important; font-size:14px !important; font-weight:900; }
-    .model-ready { color:#136f37; background:#e6f5eb; border-radius:7px; padding:9px 10px; margin-top:9px; font-size:10px; font-weight:800; text-align:center; }
-    .csv-button { background:var(--navy); color:white; border-radius:7px; padding:11px; text-align:center; margin-top:27px; font-size:11px; font-weight:800; }
-    .download-template { color:#4c515c; font-size:10px; font-weight:700; margin:22px 8px 0; }
-
-    .dash-topbar { box-sizing:border-box; width:calc(100vw - 260px); height:60px; display:flex; align-items:center; color:var(--navy); font-family:'Work Sans', sans-serif; font-size:20px; line-height:28px; font-weight:700; border-bottom:1px solid var(--line); margin-left:-32px; padding:12px 32px; white-space:nowrap; }
-    .page-head { padding-top:32px; }
-    .dash-title { margin:0 0 8px; color:var(--navy); font-family:'Work Sans', sans-serif; font-size:36px; line-height:44px; font-weight:700; letter-spacing:-.02em; }
-    .dash-copy { margin:0 0 24px; color:#434750; font-size:14px; line-height:20px; }
-    .kpi-card { min-height:128px; box-sizing:border-box; background:white; border:1px solid #e2e8f0; border-radius:8px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,.02); }
-    [data-testid="stHorizontalBlock"]:has(.kpi-card) { max-width:100%; gap:20px !important; }
-    [data-testid="stHorizontalBlock"]:has(.prediction-kpi) { max-width:680px; }
-    .kpi-label { color:#737781; font:600 12px/16px 'Public Sans', sans-serif; letter-spacing:.05em; text-transform:uppercase; }
-    .kpi-value { color:#002752; font:700 36px/44px 'Work Sans', sans-serif; margin-top:14px; word-break:break-word; }
-    .kpi-note { color:#434750; font:500 12px/16px 'Public Sans', sans-serif; margin-top:4px; }
-    .prediction-spacer { height:0; }
-    [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .panel-title),
-    [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .result-title) { min-height:420px; padding:28px !important; background:white !important; border:1px solid #e2e8f0 !important; border-radius:8px !important; box-shadow:0 4px 12px rgba(0,0,0,.02) !important; }
-    .panel-title { color:var(--navy); font-family:'Work Sans', sans-serif; font-size:18px; line-height:24px; font-weight:600; margin:0 0 18px; }
-    .result-title { color:#737781; font-size:18px; line-height:24px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:32px; }
-    .result-box { border:1px solid #c3c6d1; background:#fbfbfe; border-radius:7px; padding:15px; display:flex; align-items:center; justify-content:space-between; gap:13px; }
-    .result-aspect { color:#0b1c30; font:800 16px/22px 'Public Sans', sans-serif; }
-    .result-confidence { color:#737781; font:700 13px/18px 'Public Sans', sans-serif; margin-top:3px; }
-    .result-empty { color:#737781; font-size:12px; line-height:18px; padding:12px 0; }
-    .sentiment-pill { border-radius:999px; padding:10px 18px; font:800 14px/18px 'Public Sans', sans-serif; white-space:nowrap; }
-    .sentiment-positif { background:#e8f6ec; color:#167a38; }
-    .sentiment-negatif { background:#ffdad6; color:#93000a; }
-    .sentiment-netral { background:#e5eeff; color:#003d79; }
-    div[data-testid="stTextArea"] label { display:none !important; }
-    div[data-testid="stTextArea"] textarea { background:var(--canvas) !important; color:#0b1c30 !important; border:1px solid var(--line) !important; border-radius:8px !important; min-height:260px !important; padding:16px !important; font:400 14px/20px 'Public Sans', sans-serif !important; }
-    div[data-testid="stForm"] { border:0 !important; padding:0 !important; }
-    div[data-testid="stFormSubmitButton"] { display:flex; justify-content:flex-end; }
-    div[data-testid="stFormSubmitButton"] button { background:var(--navy) !important; color:#fff !important; border:0 !important; border-radius:7px !important; font-size:12px !important; font-weight:800 !important; min-height:38px; min-width:145px; }
-    div[data-testid="stFormSubmitButton"] button:hover { background:#06457e !important; color:#fff !important; }
-    div[data-testid="stAlert"] { font-size:12px; }
-    section[data-testid="stSidebar"] [data-testid="stRadio"] > div { gap:5px !important; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] { width:100%; min-height:40px; box-sizing:border-box; border-radius:8px; padding:10px 12px !important; color:#434750; font-size:12px; font-weight:600; letter-spacing:.05em; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] p { color:#434750 !important; font-size:12px !important; line-height:16px !important; font-weight:600 !important; letter-spacing:.05em; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:hover { background:var(--surface-container); }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) { color:var(--navy); background:var(--surface-low); border-right:4px solid var(--navy); }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) p { color:var(--navy) !important; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] > div > div > div:first-child { display:none !important; }
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] { margin-top:24px; }
-    section[data-testid="stSidebar"] [data-testid="stFileUploader"] label { color:var(--navy) !important; font-size:11px !important; font-weight:800 !important; }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] { min-height:44px !important; padding:5px !important; background:#eef2f9 !important; border:1px dashed #9ea8b8 !important; }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] { display:none !important; }
-    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button { width:100%; min-height:32px; background:var(--navy) !important; color:white !important; border:0 !important; font-size:10px !important; font-weight:800 !important; }
-    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] button,
-    section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] { width:100%; border:0 !important; background:transparent !important; color:#4c515c !important; justify-content:flex-start; padding:5px 7px !important; font-size:10px !important; font-weight:700 !important; }
-    .section-title { color:var(--navy); font-size:20px; line-height:27px; font-weight:900; margin:8px 0 13px; }
-    .section-copy { color:#555c68; font-size:12px; line-height:18px; margin:-7px 0 15px; }
-    .bar-list { display:flex; flex-direction:column; gap:12px; }
-    .bar-row { display:grid; grid-template-columns:190px 1fr 52px; gap:12px; align-items:center; }
-    .bar-label { color:#434750; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .bar-track { background:var(--surface-container); border-radius:999px; height:10px; overflow:hidden; }
-    .bar-fill { background:var(--primary-container); height:100%; border-radius:999px; }
-    .donut-wrap { display:flex; align-items:center; justify-content:center; min-height:260px; }
-    .donut { width:210px; height:210px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--positive) 0 var(--pos), var(--neutral) var(--pos) var(--net), var(--negative) var(--net) 100%); position:relative; }
-    .donut::after { content:''; width:126px; height:126px; border-radius:50%; background:white; position:absolute; }
-    .donut-center { position:relative; z-index:1; text-align:center; }
-    .donut-center b { display:block; font-family:'Work Sans'; font-size:24px; color:var(--navy); }
-    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; }
-    .legend-item { display:flex; gap:8px; align-items:center; color:#434750; font-size:12px; font-weight:600; }
-    .swatch { width:12px; height:12px; border-radius:3px; }
-    .stack-chart { display:flex; flex-direction:column; gap:12px; }
-    .stack-row { display:grid; grid-template-columns:180px 1fr; gap:12px; align-items:center; }
-    .stack-bar { height:22px; border-radius:4px; overflow:hidden; display:flex; background:var(--surface-container); }
-    .seg-pos { background:var(--positive); } .seg-net { background:var(--neutral); } .seg-neg { background:var(--negative); }
-    .ipa-area { height:560px; background:var(--canvas); border:1px solid var(--line); border-radius:4px; position:relative; overflow:hidden; }
-    .quad { position:absolute; width:50%; height:50%; }
-    .quad-a { left:0; top:0; background:rgba(186,26,26,.07); }
-    .quad-b { right:0; top:0; background:rgba(0,39,82,.07); }
-    .quad-c { left:0; bottom:0; background:rgba(115,119,129,.08); }
-    .quad-d { right:0; bottom:0; background:rgba(252,184,18,.12); }
-    .mid-v { position:absolute; top:0; bottom:0; left:50%; border-left:1px dashed var(--muted); }
-    .mid-h { position:absolute; left:0; right:0; top:50%; border-top:1px dashed var(--muted); }
-    .quad-label { position:absolute; z-index:2; font:700 12px/16px 'Public Sans'; letter-spacing:.03em; }
-    .ipa-point { position:absolute; z-index:4; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 4px 10px rgba(0,0,0,.18); transform:translate(-50%, 50%); }
-    .ipa-point.a { background:var(--negative); } .ipa-point.b { background:var(--navy); } .ipa-point.c { background:var(--muted); } .ipa-point.d { background:var(--yellow); }
-    .ipa-point span { position:absolute; left:14px; bottom:10px; white-space:nowrap; background:white; border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--ink); font:600 11px/14px 'Public Sans'; }
-    @media (max-width:980px) {
-      header[data-testid="stHeader"] { display:flex !important; height:48px !important; background:var(--canvas) !important; }
-      div[data-testid="stToolbar"], div[data-testid="stToolbar"] > div, div[data-testid="stToolbar"] > div > div {
-        display:flex !important; width:auto !important; height:auto !important; overflow:visible !important;
-      }
-      div[data-testid="stToolbar"] button:not([data-testid="stExpandSidebarButton"]) { display:none !important; }
-      [data-testid="stSidebarHeader"], [data-testid="stSidebarCollapseButton"] { display:flex !important; }
-      body:has(section[data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] {
-        display:flex !important; position:fixed !important; left:8px !important; top:8px !important;
-        width:36px !important; height:36px !important; min-width:36px !important; opacity:1 !important;
-        visibility:visible !important; z-index:10000 !important; color:var(--navy) !important;
-        background:white !important; border:1px solid var(--line) !important; border-radius:8px !important;
-      }
-      body:has(section[data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stExpandSidebarButton"] { display:none !important; }
-      section[data-testid="stSidebar"] { display:block !important; width:260px !important; min-width:260px !important; }
-      section[data-testid="stSidebar"] > div { width:260px !important; }
-      .block-container { max-width:none !important; padding:48px 16px 40px !important; }
-      .dash-topbar { width:calc(100vw - 32px); height:auto; min-height:60px; margin-left:0; padding:12px 16px; font-size:16px; line-height:22px; white-space:normal; }
-      .page-head { padding-top:24px; }
-      .dash-title { font-size:30px; line-height:38px; }
-      [data-testid="stHorizontalBlock"]:has(.kpi-card) { max-width:100%; }
-      .kpi-value { font-size:30px; line-height:38px; }
-      .bar-row, .stack-row { grid-template-columns:110px 1fr; }
-      .ipa-area { height:440px; }
-      .ipa-point span { display:none; }
-    }
+    header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], [data-testid="stSidebar"] { display: none !important; }
+    .block-container { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    iframe { display: block; }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
-st.sidebar.markdown(
-    """
-    <div class="side-brand">ABSA Livin'</div>
-    <div class="side-sub">Analisis Mandiri</div>
-    """,
-    unsafe_allow_html=True,
-)
-
-page_option = st.sidebar.radio(
-    "Navigasi",
-    ["◉  Prediksi Ulasan", "▦  Ikhtisar Data", "▦  Matriks IPA", "▤  Daftar Ulasan"],
-    label_visibility="collapsed",
-    key="dashboard_page",
-)
-active_page = page_option.split("  ", 1)[-1]
-
-st.sidebar.markdown(
-    """
-    <div class="side-section-title">Model Prediksi</div>
-    <div class="side-helper">Model bawaan dimuat otomatis dari repositori.</div>
-    <div class="artifact"><div><strong>Model aspek</strong><span>model_aspek_raw.keras</span></div><span class="artifact-check">✓</span></div>
-    <div class="artifact"><div><strong>Model sentimen</strong><span>model_sentimen_cascaded.keras</span></div><span class="artifact-check">✓</span></div>
-    <div class="artifact"><div><strong>Tokenizer</strong><span>tokenizer_absa.joblib</span></div><span class="artifact-check">✓</span></div>
-    <div class="artifact"><div><strong>Encoder aspek</strong><span>encoder_aspek.joblib</span></div><span class="artifact-check">✓</span></div>
-    <div class="artifact"><div><strong>Encoder sentimen</strong><span>encoder_sentimen.joblib</span></div><span class="artifact-check">✓</span></div>
-    <div class="model-ready">✓ Model default aktif</div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if "dashboard_df" not in st.session_state:
-    st.session_state.dashboard_df = load_dataset()
-if "csv_uploader_version" not in st.session_state:
-    st.session_state.csv_uploader_version = 0
-
-uploaded_csv = st.sidebar.file_uploader(
-    "Unggah CSV",
-    type=["csv"],
-    key=f"dashboard_csv_{st.session_state.csv_uploader_version}",
-    help="Gunakan kolom ulasan, aspek, dan sentimen.",
-)
-if uploaded_csv is not None:
-    try:
-        st.session_state.dashboard_df = normalize_dataset(
-            pd.read_csv(io.BytesIO(uploaded_csv.getvalue()))
-        )
-        st.sidebar.success(f"{uploaded_csv.name} berhasil dimuat.")
-    except Exception as exc:
-        st.sidebar.error(f"CSV belum dapat dibaca: {exc}")
-
-if st.sidebar.button("Gunakan data bawaan", width="stretch"):
-    st.session_state.dashboard_df = load_dataset()
-    st.session_state.csv_uploader_version += 1
-    st.rerun()
-
-template_csv = ",".join(TEMPLATE_COLUMNS) + "\n"
-st.sidebar.download_button(
-    "⇩  Unduh Template",
-    data=template_csv.encode("utf-8"),
-    file_name="template_ulasan_absa.csv",
-    mime="text/csv",
-    width="stretch",
-)
-
-df = st.session_state.dashboard_df.copy()
-payload = compute_payload(df)
-
-if "prediction_result" not in st.session_state:
-    st.session_state.prediction_result = None
-
-top_aspect_raw = str(payload["topAspect"].get("aspek", "-"))
-top_aspect_display = "Layanan Digital" if top_aspect_raw == "functional suitability" else top_aspect_raw.title()
-negative_rate = payload["negativeRate"] * 100
-total_display = f"{payload['total']:,}".replace(",", ".")
-top_aspect_count_display = f"{int(payload['topAspect'].get('jumlah', 0)):,}".replace(",", ".")
-
-
-def render_page_heading(title, copy):
-    st.markdown(
-        f"""
-        <div class="page-head">
-          <h1 class="dash-title">{html_lib.escape(title)}</h1>
-          <p class="dash-copy">{html_lib.escape(copy)}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_kpi(label, value, note, variant=""):
-    card_class = f"kpi-card {variant}".strip()
-    st.markdown(
-        f"<div class='{card_class}'><div class='kpi-label'>{html_lib.escape(label)}</div><div class='kpi-value'>{html_lib.escape(value)}</div><div class='kpi-note'>{html_lib.escape(note)}</div></div>",
-        unsafe_allow_html=True,
-    )
-
-
-def render_aspect_bars(rows):
-    maximum = max((int(row.get("jumlah", 0)) for row in rows), default=1) or 1
-    bars = "".join(
-        f"<div class='bar-row'><div class='bar-label'>{html_lib.escape(str(row.get('aspek', '-')).title())}</div><div class='bar-track'><div class='bar-fill' style='width:{int(row.get('jumlah', 0)) / maximum * 100:.2f}%'></div></div><div>{int(row.get('jumlah', 0)):,}</div></div>"
-        for row in rows
-    )
-    st.markdown(f"<div class='bar-list'>{bars}</div>", unsafe_allow_html=True)
-
-
-def render_sentiment_donut(payload_data):
-    total = max(int(payload_data["total"]), 1)
-    counts = {row["sentimen"]: int(row["jumlah"]) for row in payload_data["sentimentCounts"]}
-    positive_boundary = counts.get("Positif", 0) / total * 100
-    neutral_boundary = (counts.get("Positif", 0) + counts.get("Netral", 0)) / total * 100
-    st.markdown(
-        f"""
-        <div class="donut-wrap">
-          <div class="donut" style="--pos:{positive_boundary:.3f}%;--net:{neutral_boundary:.3f}%">
-            <div class="donut-center"><b>{payload_data['total']:,}</b><span>Total</span></div>
-          </div>
-        </div>
-        <div class="legend">
-          <span class="legend-item"><i class="swatch" style="background:#16a34a"></i>Positif</span>
-          <span class="legend-item"><i class="swatch" style="background:#335f9c"></i>Netral</span>
-          <span class="legend-item"><i class="swatch" style="background:#ba1a1a"></i>Negatif</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_sentiment_stacks(rows):
-    stacks = []
-    for row in rows:
-        total = max(int(row.get("Positif", 0)) + int(row.get("Netral", 0)) + int(row.get("Negatif", 0)), 1)
-        stacks.append(
-            f"<div class='stack-row'><div class='bar-label'>{html_lib.escape(str(row.get('Aspek', '-')).title())}</div><div class='stack-bar'><div class='seg-pos' style='width:{int(row.get('Positif', 0)) / total * 100:.2f}%'></div><div class='seg-net' style='width:{int(row.get('Netral', 0)) / total * 100:.2f}%'></div><div class='seg-neg' style='width:{int(row.get('Negatif', 0)) / total * 100:.2f}%'></div></div></div>"
-        )
-    st.markdown(f"<div class='stack-chart'>{''.join(stacks)}</div>", unsafe_allow_html=True)
-
-
-def render_ipa_plot(ipa_rows):
-    max_x = max([abs(float(row.get("performance_score", 0))) for row in ipa_rows] + [1])
-    max_y = max([abs(float(row.get("importance_score", 0))) for row in ipa_rows] + [1])
-    points = []
-    for row in ipa_rows:
-        x = max(3, min(97, 50 + float(row.get("performance_score", 0)) / max_x * 47))
-        y = max(3, min(97, 50 + float(row.get("importance_score", 0)) / max_y * 47))
-        quadrant = str(row.get("quadrant", "D")).lower()
-        label = html_lib.escape(str(row.get("Aspek", "-")).title())
-        points.append(
-            f"<div class='ipa-point {quadrant}' style='left:{x:.2f}%;bottom:{y:.2f}%'><span>{label}</span></div>"
-        )
-    st.markdown(
-        f"""
-        <div class="ipa-area">
-          <div class="quad quad-a"></div><div class="quad quad-b"></div>
-          <div class="quad quad-c"></div><div class="quad quad-d"></div>
-          <div class="mid-v"></div><div class="mid-h"></div>
-          <div class="quad-label" style="top:16px;left:16px;color:#ba1a1a">A: Prioritas Utama</div>
-          <div class="quad-label" style="top:16px;right:16px;color:#002752">B: Pertahankan</div>
-          <div class="quad-label" style="bottom:16px;left:16px;color:#737781">C: Prioritas Rendah</div>
-          <div class="quad-label" style="bottom:16px;right:16px;color:#7c5800">D: Berlebihan</div>
-          {''.join(points)}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-st.markdown("<div class='dash-topbar'>Dashboard Evaluasi Kualitas Aplikasi Livin' by Mandiri</div>", unsafe_allow_html=True)
-
-if active_page == "Prediksi Ulasan":
-    render_page_heading("Prediksi Ulasan", "Analisis sentimen dan aspek secara real-time menggunakan model ABSA.")
-
-    kpi_total, kpi_aspect = st.columns(2, gap="small")
-    with kpi_total:
-        render_kpi("Total Ulasan", total_display, "Data dianalisis", "prediction-kpi")
-    with kpi_aspect:
-        render_kpi("Aspek Dominan", top_aspect_display, f"{top_aspect_count_display} sebutan", "prediction-kpi")
-
-    form_column, result_column = st.columns([1.4, 1], gap="small")
-    with form_column:
-        with st.container(border=True):
-            st.markdown("<div class='panel-title'>Masukkan Teks Ulasan</div>", unsafe_allow_html=True)
-            with st.form("prediction_form", clear_on_submit=False):
-                review_text = st.text_area(
-                    "Masukkan Teks Ulasan",
-                    placeholder="Ketik atau paste ulasan pengguna di sini...",
-                    label_visibility="collapsed",
-                )
-                submitted = st.form_submit_button("▣  Prediksi Ulasan", type="primary")
-            if submitted:
-                if not review_text.strip():
-                    st.warning("Masukkan teks ulasan terlebih dahulu.")
-                else:
-                    with st.spinner("Model sedang memproses ulasan..."):
-                        st.session_state.prediction_result = predict_with_model(review_text)
-
-    with result_column:
-        with st.container(border=True):
-            st.markdown("<div class='result-title'>Hasil Analisis Aspek &amp; Sentimen</div>", unsafe_allow_html=True)
-            result = st.session_state.prediction_result
-            if result is None:
-                st.markdown(
-                    "<div class='result-empty'>Hasil prediksi akan tampil di sini setelah teks ulasan dianalisis.<br><br>Model default dari repositori sudah aktif dan tidak perlu diunggah ulang.</div>",
-                    unsafe_allow_html=True,
-                )
-            elif not result.get("ok"):
-                st.error(result.get("message", "Prediksi belum bisa diproses."))
-            else:
-                sentiment = str(result["sentiment"])
-                sentiment_class = sentiment.lower()
-                result_aspect_raw = str(result["aspect"])
-                result_aspect = "Layanan Digital" if result_aspect_raw == "functional suitability" else result_aspect_raw.title()
-                st.markdown(
-                    f"""
-                    <div class="result-box">
-                      <div>
-                        <div class="result-aspect">{html_lib.escape(result_aspect)}</div>
-                        <div class="result-confidence">Confidence: {result['confidence'] * 100:.1f}%</div>
-                        <div class="result-confidence">Aspek: {result['aspectConfidence'] * 100:.1f}% &nbsp;|&nbsp; Sentimen: {result['sentimentConfidence'] * 100:.1f}%</div>
-                      </div>
-                      <div class="sentiment-pill sentiment-{sentiment_class}">{html_lib.escape(sentiment)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-
-elif active_page == "Ikhtisar Data":
-    render_page_heading("Ikhtisar Data", "Ringkasan komprehensif sentimen ulasan pengguna Livin' by Mandiri.")
-    overview_total, overview_positive, overview_negative, overview_aspect = st.columns(4, gap="small")
-    with overview_total:
-        render_kpi("Total Ulasan", total_display, "Data dianalisis")
-    with overview_positive:
-        render_kpi("Sentimen Positif", f"{payload['positiveRate'] * 100:.1f}%", "Proporsi ulasan positif")
-    with overview_negative:
-        render_kpi("Sentimen Negatif", f"{payload['negativeRate'] * 100:.1f}%", "Proporsi keluhan pengguna")
-    with overview_aspect:
-        render_kpi("Aspek Teratas", top_aspect_display, f"{top_aspect_count_display} sebutan")
-
-    sentiment_col, aspect_col = st.columns([1, 2], gap="small")
-    with sentiment_col:
-        with st.container(border=True):
-            st.markdown("<div class='result-title'>Komposisi Sentimen</div>", unsafe_allow_html=True)
-            render_sentiment_donut(payload)
-    with aspect_col:
-        with st.container(border=True):
-            st.markdown("<div class='result-title'>Distribusi Aspek</div>", unsafe_allow_html=True)
-            render_aspect_bars(payload["aspectCounts"])
-
-    with st.container(border=True):
-        st.markdown("<div class='result-title'>Sentimen per Aspek</div>", unsafe_allow_html=True)
-        render_sentiment_stacks(payload["cross"])
-
-elif active_page == "Matriks IPA":
-    render_page_heading("Analisis Kepentingan dan Kinerja (IPA)", "Evaluasi aspek aplikasi berdasarkan tingkat kepentingan pengguna vs kinerja aktual.")
-    ipa_df = pd.DataFrame(payload["ipa"])
-    if ipa_df.empty:
-        st.info("Belum ada data yang dapat dipetakan.")
-    else:
-        ipa_total, ipa_priority, ipa_keep, ipa_center = st.columns(4, gap="small")
-        with ipa_total:
-            render_kpi("Total Aspek", str(len(ipa_df)), "Dianalisis")
-        with ipa_priority:
-            render_kpi("Prioritas Utama (A)", str(int((ipa_df["quadrant"] == "A").sum())), "Perlu perbaikan")
-        with ipa_keep:
-            render_kpi("Pertahankan (B)", str(int((ipa_df["quadrant"] == "B").sum())), "Kinerja relatif baik")
-        with ipa_center:
-            render_kpi("Titik Pusat", "0,00 ; 0,00", "Z-Score Performance dan Importance")
-        with st.container(border=True):
-            st.markdown("<div class='result-title'>Plot Sebar Matriks IPA</div>", unsafe_allow_html=True)
-            render_ipa_plot(payload["ipa"])
-        ipa_table = ipa_df[["rank", "Aspek", "quadrant", "importance", "performance", "negative_rate"]].copy()
-        ipa_table.columns = ["Peringkat", "Aspek", "Kuadran", "Jumlah", "Rasio Positif", "Rasio Negatif"]
-        ipa_table["Rasio Positif"] = (ipa_table["Rasio Positif"] * 100).round(1).astype(str) + "%"
-        ipa_table["Rasio Negatif"] = (ipa_table["Rasio Negatif"] * 100).round(1).astype(str) + "%"
-        st.markdown("<div class='section-title'>Prioritas Perbaikan</div>", unsafe_allow_html=True)
-        st.dataframe(ipa_table, width="stretch", hide_index=True)
-
-else:
-    render_page_heading("Daftar Ulasan", "Telusuri dan saring seluruh ulasan pada data aktif.")
-    filter_search, filter_aspect, filter_sentiment = st.columns([1.4, 1, 1], gap="small")
-    with filter_search:
-        search_text = st.text_input("Cari ulasan", placeholder="Ketik kata kunci...")
-    with filter_aspect:
-        selected_aspects = st.multiselect("Aspek", sorted(df["Aspek"].dropna().unique().tolist()))
-    with filter_sentiment:
-        selected_sentiments = st.multiselect("Sentimen", ["Positif", "Netral", "Negatif"])
-
-    filtered_df = df.copy()
-    if search_text:
-        filtered_df = filtered_df[filtered_df["Ulasan"].str.contains(search_text, case=False, na=False)]
-    if selected_aspects:
-        filtered_df = filtered_df[filtered_df["Aspek"].isin(selected_aspects)]
-    if selected_sentiments:
-        filtered_df = filtered_df[filtered_df["Sentimen"].isin(selected_sentiments)]
-
-    st.caption(f"Menampilkan {len(filtered_df):,} dari {len(df):,} ulasan".replace(",", "."))
-    st.dataframe(filtered_df, width="stretch", hide_index=True, height=430)
-    st.download_button(
-        "Unduh hasil filter",
-        data=filtered_df.to_csv(index=False).encode("utf-8"),
-        file_name="daftar_ulasan_terfilter.csv",
-        mime="text/csv",
-    )
-
-st.stop()
-
 html = build_html(payload)
 static_path = Path("dashboard_static.html")
 if static_path.exists():
@@ -1688,10 +1239,6 @@ def _start_dashboard_server():
                     self.send_json(get_prediction_job(job_id))
                     return
                 if self.path == "/upload-model":
-                    if not ALLOW_MODEL_UPLOADS:
-                        log_event("upload_model_blocked")
-                        self.send_json({"ok": False, "message": "Upload model dinonaktifkan di server publik."}, status=403)
-                        return
                     content_type = self.headers.get("Content-Type", "")
                     length = int(self.headers.get("Content-Length", "0") or 0)
                     log_event("upload_model_request", content_type=content_type, content_length=length)
@@ -1778,4 +1325,11 @@ def _dashboard_server_is_alive():
 if not _dashboard_server_is_alive():
     _start_dashboard_server()
 
-components.html(html, height=920, scrolling=True)
+iframe_version = int(time.time())
+dashboard_static_base_url = os.environ.get("DASHBOARD_STATIC_URL", "http://127.0.0.1:8765").rstrip("/")
+st.markdown(
+    f'<iframe src="{dashboard_static_base_url}/dashboard_static.html?v={iframe_version}" '
+    'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
+    unsafe_allow_html=True,
+)
+
