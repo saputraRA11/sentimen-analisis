@@ -1073,12 +1073,63 @@ st.markdown(
     """
     <style>
     header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], [data-testid="stSidebar"] { display: none !important; }
+    .stApp { background:#f8f9ff !important; color:#0b1c30 !important; }
     .block-container { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+    .native-predict-wrap { background:#f8f9ff; padding:24px 32px 18px; border-bottom:1px solid #d3e4fe; }
+    .native-predict-inner { max-width:1280px; margin:0 auto; }
+    .native-predict-title { margin:0 0 6px; color:#002752; font-family:'Work Sans', sans-serif; font-size:32px; line-height:40px; font-weight:700; }
+    .native-predict-copy { margin:0 0 18px; color:#434750; font-family:'Public Sans', sans-serif; font-size:14px; line-height:20px; }
+    .native-result { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:14px; }
+    .native-result-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; }
+    .native-result-label { color:#737781; font:700 12px/16px 'Public Sans', sans-serif; letter-spacing:.05em; text-transform:uppercase; }
+    .native-result-value { margin-top:8px; color:#002752; font:700 26px/32px 'Work Sans', sans-serif; word-break:break-word; }
+    div[data-testid="stTextArea"] label { color:#0b1c30 !important; font-weight:700 !important; }
+    div[data-testid="stTextArea"] textarea { background:#ffffff !important; color:#0b1c30 !important; border:1px solid #c3c6d1 !important; border-radius:8px !important; }
+    div[data-testid="stButton"] button { background:#002752 !important; color:#ffffff !important; border-radius:8px !important; border:0 !important; font-weight:700 !important; }
     iframe { display: block; }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+st.markdown(
+    """
+    <div class="native-predict-wrap">
+      <div class="native-predict-inner">
+        <h1 class="native-predict-title">Prediksi Ulasan ABSA Livin'</h1>
+        <p class="native-predict-copy">Masukkan ulasan untuk menjalankan model default dari folder <code>models/</code>. Tidak perlu upload model.</p>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.container():
+    st.markdown('<div class="native-predict-wrap"><div class="native-predict-inner">', unsafe_allow_html=True)
+    review_text = st.text_area(
+        "Masukkan teks ulasan",
+        placeholder="Contoh: Aplikasi sering error saat transfer, mohon diperbaiki.",
+        height=96,
+    )
+    if st.button("Prediksi Ulasan", type="primary"):
+        with st.spinner("Model sedang memproses ulasan..."):
+            result = predict_with_model(review_text)
+        if result.get("ok"):
+            st.markdown(
+                f"""
+                <div class="native-result">
+                  <div class="native-result-card"><div class="native-result-label">Aspek</div><div class="native-result-value">{result["aspect"]}</div></div>
+                  <div class="native-result-card"><div class="native-result-label">Sentimen</div><div class="native-result-value">{result["sentiment"]}</div></div>
+                  <div class="native-result-card"><div class="native-result-label">Confidence</div><div class="native-result-value">{result["confidence"] * 100:.1f}%</div></div>
+                </div>
+                <p class="native-predict-copy" style="margin-top:10px;">Aspek: {result["aspectConfidence"] * 100:.1f}% | Sentimen: {result["sentimentConfidence"] * 100:.1f}%</p>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.error(result.get("message", "Prediksi belum bisa diproses."))
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
 html = build_html(payload)
 static_path = Path("dashboard_static.html")
 if static_path.exists():
