@@ -1618,7 +1618,8 @@ except Exception:
     pass
 
 # Setup frontend directory for Streamlit Component
-frontend_dir = Path("frontend")
+# Menggunakan folder baru untuk melakukan cache busting pada iframe Streamlit
+frontend_dir = Path("frontend_v2")
 frontend_dir.mkdir(exist_ok=True)
 index_path = frontend_dir / "index.html"
 
