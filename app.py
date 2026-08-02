@@ -1618,6 +1618,17 @@ _component_js = """
   }
   window.addEventListener("message", function(event) {
     if (event.data.type === "streamlit:render") {
+      const args = event.data.args;
+      if (args) {
+          if (args.modelStatus) {
+              currentData.modelStatus = args.modelStatus;
+              if (typeof refreshModelStatus === "function") refreshModelStatus();
+          }
+          if (args.predictionResult !== undefined) {
+              currentData.predictionResult = args.predictionResult;
+              if (typeof processInitialPrediction === "function") processInitialPrediction();
+          }
+      }
       sendMessageToStreamlit("streamlit:setFrameHeight", { height: 920 });
     }
   });
@@ -1636,7 +1647,11 @@ if "dashboard_comp" not in st.session_state:
 
 try:
     dashboard = components.declare_component("dashboard_ui", path=str(frontend_dir))
-    action = dashboard(key="dashboard_ui_component")
+    action = dashboard(
+        key="dashboard_ui_component",
+        predictionResult=st.session_state.get("prediction_result"),
+        modelStatus=get_model_status()
+    )
     
     if action and isinstance(action, dict):
         if action.get("action") == "predict":
