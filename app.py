@@ -1066,7 +1066,32 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
 .page-btn {{ width:36px; height:36px; border-radius:8px; border:1px solid var(--outline-variant); background:var(--surface); color:var(--primary); display:flex; align-items:center; justify-content:center; cursor:pointer; }}
 .page-btn:disabled {{ opacity:.42; cursor:not-allowed; }}
 .page-info {{ min-width:120px; text-align:center; color:var(--on-surface-variant); font:700 12px/16px 'Public Sans'; }}
-@media (max-width: 980px) {{ body {{ overflow:auto; }} .sidebar {{ position:relative; width:100%; height:auto; }} .main {{ margin-left:0; width:100%; }} .app {{ display:block; }} .kpi-grid {{ grid-template-columns:repeat(2,1fr); }} .col-4,.col-5,.col-7,.col-8,.col-12 {{ grid-column:span 12; }} }}
+@media (max-width: 980px) {{ 
+  body {{ overflow:auto; }} 
+  .sidebar {{ position:relative; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--outline-variant); padding-bottom:24px; }} 
+  .main {{ margin-left:0; width:100%; height:auto; overflow:visible; }} 
+  .app {{ display:block; }} 
+  .kpi-grid {{ grid-template-columns:repeat(2,1fr); }} 
+  .kpi-grid.prediction {{ grid-template-columns:1fr; }} 
+  .col-4,.col-5,.col-7,.col-8,.col-12 {{ grid-column:span 12; }} 
+  .filters {{ grid-template-columns:1fr; }} 
+  .side-actions {{ padding-bottom:0; }} 
+  .nav {{ flex-direction:row; flex-wrap:wrap; }} 
+  .nav button {{ width:auto; border-right:0; border-bottom:4px solid transparent; }} 
+  .nav button.active {{ border-right:0; border-bottom:4px solid var(--primary); }} 
+}}
+@media (max-width: 600px) {{
+  :root {{ --container-padding: 16px; --grid-gutter: 16px; }}
+  .kpi-grid {{ grid-template-columns:1fr; }}
+  .page-head h1 {{ font-size: 26px; line-height: 34px; }}
+  .page-head {{ flex-direction: column; align-items: flex-start; gap: 8px; }}
+  .kpi-value {{ font-size: 28px; line-height: 36px; }}
+  .prediction-result-card {{ flex-direction: column; align-items: flex-start; gap: 12px; }}
+  .stack-row, .bar-row {{ grid-template-columns: 1fr; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--surface-container); }}
+  .stack-bar {{ margin-bottom: 8px; }}
+  .ipa-detail-grid {{ grid-template-columns: 1fr; }}
+  .table-wrapper {{ overflow-x: auto; width: 100%; display: block; }}
+}}
 </style>
 </head>
 <body>
@@ -1237,7 +1262,7 @@ function ipaSidePanel() {{
 function updateIpaSelection() {{ const panel=document.getElementById('ipaSidePanel'); if(panel) panel.innerHTML=ipaSidePanel(); document.querySelectorAll('.point').forEach(el=>el.classList.toggle('selected', decodeURIComponent(el.dataset.aspect||'')===selectedIpaAspect)); }}
 function bindIpaInteractions() {{ document.querySelectorAll('.point').forEach(el=>{{ el.addEventListener('click', event=>{{ event.preventDefault(); event.stopPropagation(); selectIpaAspect(decodeURIComponent(el.dataset.aspect||'')); }}); }}); document.querySelectorAll('[data-ipa-row]').forEach(el=>{{ el.addEventListener('click', ()=>selectIpaAspect(decodeURIComponent(el.dataset.ipaRow||''))); }}); }}
 function renderIpa() {{ const pri=currentData.ipa.filter(r=>r.quadrant==='A'); const maxX=Math.max(1,...currentData.ipa.map(r=>Math.abs(r.performance_score))); const maxY=Math.max(1,...currentData.ipa.map(r=>Math.abs(r.importance_score))); const points=currentData.ipa.map(r=>{{ const x=Math.max(3, Math.min(97, 50+(r.performance_score/maxX)*47)); const y=Math.max(3, Math.min(97, 50+(r.importance_score/maxY)*47)); const selected=r.Aspek===selectedIpaAspect?' selected':''; return `<div class="point ${{r.quadrant.toLowerCase()}}${{selected}}" role="button" tabindex="0" data-aspect="${{encodeURIComponent(r.Aspek)}}" title="${{r.Aspek}}: Z(${{r.performance_score.toFixed(2)}}, ${{r.importance_score.toFixed(2)}})" style="left:${{x}}%;bottom:${{y}}%"><span>${{r.Aspek}}</span></div>`; }}).join(''); document.getElementById('page-ipa').innerHTML = `${{pageHead('Analisis Kepentingan dan Kinerja (IPA)','Evaluasi aspek aplikasi berdasarkan tingkat kepentingan pengguna vs kinerja aktual.')}}<div class="kpi-grid">${{kpi('Total Aspek', currentData.ipa.length, 'Dianalisis')}}${{kpi('Prioritas Utama (A)', pri.length, 'Perlu perbaikan')}}${{kpi('Pertahankan (B)', currentData.ipa.filter(r=>r.quadrant==='B').length, 'Kinerja relatif baik')}}${{kpi('Titik Pusat', '0,00 ; 0,00', 'Z-Score Performance dan Importance')}}</div><div class="grid-12"><div class="col-8 card panel"><h3 class="headline">Plot Sebar Matriks IPA</h3><div class="ipa-area"><div class="quad qa"></div><div class="quad qb"></div><div class="quad qc"></div><div class="quad qd"></div><div class="mid-v"></div><div class="mid-h"></div><div class="quad-label" style="top:16px;left:16px;color:#ba1a1a">A: Prioritas Utama</div><div class="quad-label" style="top:16px;right:16px;color:#002752">B: Pertahankan</div><div class="quad-label" style="bottom:16px;left:16px;color:#737781">C: Prioritas Rendah</div><div class="quad-label" style="bottom:16px;right:16px;color:#7c5800">D: Berlebihan</div>${{points}}</div></div><div id="ipaSidePanel" class="col-4 card panel">${{ipaSidePanel()}}</div><div class="col-12 card panel"><h3 class="panel-title">Tabel Agregasi IPA</h3>${{ipaTable()}}</div></div>`; bindIpaInteractions(); }}
-function ipaTable() {{ return `<table class="table"><thead><tr><th>Rank</th><th>Aspek</th><th>Importance</th><th>Performance</th><th>Z Performance</th><th>Z Importance</th><th>Kuadran</th></tr></thead><tbody>${{currentData.ipa.map(r=>`<tr class="clickable-row" onclick="selectIpaAspect(${{JSON.stringify(r.Aspek)}})"><td>${{r.rank}}</td><td>${{r.Aspek}}</td><td>${{r.importance_score_raw.toFixed(2)}}</td><td>${{pct(r.performance)}}</td><td>${{r.performance_score.toFixed(2)}}</td><td>${{r.importance_score.toFixed(2)}}</td><td>${{r.quadrant}}</td></tr>`).join('')}}</tbody></table>`; }}
+function ipaTable() {{ return `<div class="table-wrapper" style="overflow-x:auto"><table class="table"><thead><tr><th>Rank</th><th>Aspek</th><th>Importance</th><th>Performance</th><th>Z Performance</th><th>Z Importance</th><th>Kuadran</th></tr></thead><tbody>${{currentData.ipa.map(r=>`<tr class="clickable-row" onclick="selectIpaAspect(${{JSON.stringify(r.Aspek)}})"><td>${{r.rank}}</td><td>${{r.Aspek}}</td><td>${{r.importance_score_raw.toFixed(2)}}</td><td>${{pct(r.performance)}}</td><td>${{r.performance_score.toFixed(2)}}</td><td>${{r.importance_score.toFixed(2)}}</td><td>${{r.quadrant}}</td></tr>`).join('')}}</tbody></table></div>`; }}
 function renderDetail() {{ const aspects=[...new Set(currentData.reviews.map(r=>r.Aspek))].sort(); reviewPage=1; document.getElementById('page-detail').innerHTML = `${{pageHead('Daftar Ulasan','Tinjau dan telusuri data ulasan berdasarkan aspek, sentimen, dan kata kunci.')}}<div class="card panel"><div class="filters"><select id="fAspect"><option>Semua</option>${{aspects.map(a=>`<option>${{a}}</option>`).join('')}}</select><select id="fSent"><option>Semua</option><option>Negatif</option><option>Positif</option><option>Netral</option></select><input id="fKey" type="text" placeholder="Cari keyword ulasan" /></div><div style="height:18px"></div><div id="reviewTable"></div></div>`; ['fAspect','fSent','fKey'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{{ reviewPage=1; updateReviews(); }})); updateReviews(); }}
 function filteredReviews() {{ const a=document.getElementById('fAspect')?.value||'Semua'; const s=document.getElementById('fSent')?.value||'Semua'; const k=(document.getElementById('fKey')?.value||'').toLowerCase(); return currentData.reviews.filter(r=>(a==='Semua'||r.Aspek===a)&&(s==='Semua'||r.Sentimen===s)&&(!k||String(r.Ulasan).toLowerCase().includes(k))); }}
 function setReviewPage(delta) {{ reviewPage += delta; updateReviews(); }}
