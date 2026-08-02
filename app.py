@@ -1169,9 +1169,9 @@ function humanError(message, detail='') {{ return `<div class="prediction-result
 function processingSummary(message) {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi sedang diproses</div><div class="prediction-result-confidence">${{message}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 async function readJsonResponse(res) {{ const raw=await res.text(); try {{ return JSON.parse(raw); }} catch(err) {{ return {{ok:false, message:'Server belum mengirim respons prediksi yang valid.', detail:'Biasanya Streamlit perlu dijalankan ulang, endpoint /predict belum aktif, atau artefak model belum lengkap.'}}; }} }}
 function setPredictButton(enabled, label) {{ const btn=document.getElementById('predictBtn'); const text=document.getElementById('predictBtnText'); if(btn) btn.disabled=!enabled; if(text) text.textContent=label; }}
-async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); try {{ const res=await fetch('/model-status'); const out=await readJsonResponse(res); if(out.ready) {{ if(label) label.textContent='Model siap digunakan.'; setPredictButton(true,'Prediksi Ulasan'); return; }} if(label) label.textContent=out.message||'Model sedang disiapkan.'; setPredictButton(false, out.state==='error'?'Model Belum Siap':'Menyiapkan Model'); if(out.state==='idle'||out.state==='loading') setTimeout(refreshModelStatus, 1200); }} catch(err) {{ if(label) label.textContent='Status model belum bisa dicek.'; setPredictButton(false,'Model Belum Siap'); }} }}
-async function pollPredictionResult(jobId, startedAt) {{ const box=document.getElementById('predictionResult'); try {{ const res=await fetch('/predict-result?id='+encodeURIComponent(jobId)); const out=await readJsonResponse(res); if(out.state==='queued'||out.state==='running') {{ const sec=out.running_seconds || Math.max(1, Math.round((Date.now()-startedAt)/1000)); const stage=out.stage_message || out.message || 'Model sedang memproses ulasan.'; const stageName=out.stage ? `Tahap: ${{out.stage}} · ` : ''; box.innerHTML=processingSummary(`${{stageName}}${{stage}} (${{sec}} dtk)`); setTimeout(()=>pollPredictionResult(jobId, startedAt), 700); return; }} if(out.state==='done' && out.result && out.result.ok) {{ const r=out.result; const note=`Aspek: ${{Math.round((r.aspectConfidence||r.confidence||0)*100)}}% · Sentimen: ${{Math.round((r.sentimentConfidence||r.confidence||0)*100)}}%`; box.innerHTML=resultSummary(r.aspect, r.sentiment, r.confidence||0, note); setPredictButton(true,'Prediksi Ulasan'); return; }} const err=(out.result&&out.result.message)||out.message||'Prediksi belum bisa diproses.'; box.innerHTML=humanError(err); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil mengambil hasil prediksi.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
-async function predictReview() {{ const raw=document.getElementById('reviewText').value; const box=document.getElementById('predictionResult'); if(!raw.trim()) {{ box.innerHTML=humanError('Teks ulasan masih kosong.'); return; }} setPredictButton(false,'Memproses'); box.innerHTML=processingSummary('Mengirim ulasan ke server model...'); try {{ const res=await fetch('/predict-job', {{method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{text:raw}})}}); const out=await readJsonResponse(res); if(!res.ok || !out.ok) {{ box.innerHTML=humanError(out.message||'Model belum siap dipakai.'); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); return; }} pollPredictionResult(out.job_id, Date.now()); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil terhubung ke model.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
+async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); const API=window.__DASHBOARD_API__||''; try {{ const res=await fetch(API+'/model-status'); const out=await readJsonResponse(res); if(out.ready) {{ if(label) label.textContent='Model siap digunakan.'; setPredictButton(true,'Prediksi Ulasan'); return; }} if(label) label.textContent=out.message||'Model sedang disiapkan.'; setPredictButton(false, out.state==='error'?'Model Belum Siap':'Menyiapkan Model'); if(out.state==='idle'||out.state==='loading') setTimeout(refreshModelStatus, 1200); }} catch(err) {{ if(label) label.textContent='Status model belum bisa dicek.'; setPredictButton(false,'Model Belum Siap'); }} }}
+async function pollPredictionResult(jobId, startedAt) {{ const API=window.__DASHBOARD_API__||''; const box=document.getElementById('predictionResult'); try {{ const res=await fetch(API+'/predict-result?id='+encodeURIComponent(jobId)); const out=await readJsonResponse(res); if(out.state==='queued'||out.state==='running') {{ const sec=out.running_seconds || Math.max(1, Math.round((Date.now()-startedAt)/1000)); const stage=out.stage_message || out.message || 'Model sedang memproses ulasan.'; const stageName=out.stage ? `Tahap: ${{out.stage}} · ` : ''; box.innerHTML=processingSummary(`${{stageName}}${{stage}} (${{sec}} dtk)`); setTimeout(()=>pollPredictionResult(jobId, startedAt), 700); return; }} if(out.state==='done' && out.result && out.result.ok) {{ const r=out.result; const note=`Aspek: ${{Math.round((r.aspectConfidence||r.confidence||0)*100)}}% · Sentimen: ${{Math.round((r.sentimentConfidence||r.confidence||0)*100)}}%`; box.innerHTML=resultSummary(r.aspect, r.sentiment, r.confidence||0, note); setPredictButton(true,'Prediksi Ulasan'); return; }} const err=(out.result&&out.result.message)||out.message||'Prediksi belum bisa diproses.'; box.innerHTML=humanError(err); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil mengambil hasil prediksi.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
+async function predictReview() {{ const API=window.__DASHBOARD_API__||''; const raw=document.getElementById('reviewText').value; const box=document.getElementById('predictionResult'); if(!raw.trim()) {{ box.innerHTML=humanError('Teks ulasan masih kosong.'); return; }} setPredictButton(false,'Memproses'); box.innerHTML=processingSummary('Mengirim ulasan ke server model...'); try {{ const res=await fetch(API+'/predict-job', {{method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{text:raw}})}}); const out=await readJsonResponse(res); if(!res.ok || !out.ok) {{ box.innerHTML=humanError(out.message||'Model belum siap dipakai.'); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); return; }} pollPredictionResult(out.job_id, Date.now()); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil terhubung ke model.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
 function renderOverview() {{ document.getElementById('page-overview').innerHTML = `${{pageHead('Ikhtisar Data',`Ringkasan komprehensif sentimen ulasan pengguna Livin' by Mandiri.`)}}${{globalKpis()}}<div class="grid-12"><div class="col-4 card panel"><h3 class="panel-title">Komposisi Sentimen</h3>${{donut()}}</div><div class="col-8 card panel"><h3 class="panel-title">Distribusi Aspek</h3>${{bars(currentData.aspectCounts)}}</div><div class="col-12 card panel"><h3 class="panel-title">Sentimen per Aspek</h3>${{stackBars()}}</div></div>`; }}
 function selectIpaAspect(aspect) {{ selectedIpaAspect=aspect; updateIpaSelection(); }}
 function clearIpaAspect() {{ selectedIpaAspect=null; updateIpaSelection(); }}
@@ -1217,7 +1217,7 @@ async function uploadModelFiles() {{
   if(!count) {{ status.textContent='Pilih minimal satu file artefak model.'; return; }}
   status.textContent='Mengunggah artefak model...';
   try {{
-    const res=await fetch('/upload-model', {{method:'POST', body:form}});
+    const res=await fetch((window.__DASHBOARD_API__||'')+'/upload-model', {{method:'POST', body:form}});
     const out=await readJsonResponse(res);
     if(!res.ok || !out.ok) {{ status.textContent=out.message||'Upload model belum berhasil.'; return; }}
     status.textContent='Upload berhasil. Tekan Prediksi Ulasan untuk memakai model terbaru.';
@@ -1556,19 +1556,30 @@ def _start_dashboard_server():
         allow_reuse_address = True
         allow_reuse_port = True
 
-    try:
-        server = ReusableServer(("0.0.0.0", 8501), DashboardHandler)
-        st._dashboard_server = server
-        threading.Thread(target=server.serve_forever, daemon=True).start()
-        preload_model_async()
-        _safe_print("[dashboard] Server started on port 8501")
-    except OSError as e:
-        _safe_print(f"[dashboard] Could not start server: {e}")
+    for _port in [8765, 8766, 8767, 8768, 8769]:
+        try:
+            server = ReusableServer(("127.0.0.1", _port), DashboardHandler)
+            st._dashboard_server = server
+            st._dashboard_port = _port
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            preload_model_async()
+            _safe_print(f"[dashboard] Server started on port {_port}")
+            break
+        except OSError as e:
+            _safe_print(f"[dashboard] Could not start on port {_port}: {e}")
+            continue
+
+
+def _get_dashboard_port():
+    return getattr(st, "_dashboard_port", None)
 
 
 def _dashboard_server_is_alive():
+    port = _get_dashboard_port()
+    if not port:
+        return False
     try:
-        with urlopen("http://127.0.0.1:8501/health", timeout=1.5) as response:
+        with urlopen(f"http://127.0.0.1:{port}/health", timeout=1.5) as response:
             if response.status != 200:
                 return False
             payload = json.loads(response.read().decode("utf-8"))
@@ -1581,12 +1592,22 @@ def _dashboard_server_is_alive():
 if not _dashboard_server_is_alive():
     _start_dashboard_server()
 
-iframe_version = int(time.time())
-dashboard_static_base_url = os.environ.get(
-    "DASHBOARD_STATIC_URL", "http://127.0.0.1:8501"
-).rstrip("/")
-st.markdown(
-    f'<iframe src="{dashboard_static_base_url}/dashboard_static.html?v={iframe_version}" '
-    'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
-    unsafe_allow_html=True,
+_dashboard_port = _get_dashboard_port()
+
+# Inject API base URL ke dalam HTML agar JS bisa akses dashboard server
+_html_with_api = html.replace(
+    "</head>",
+    f'<script>window.__DASHBOARD_API__ = "http://127.0.0.1:{_dashboard_port}";</script>\n</head>',
+    1,
 )
+
+try:
+    import streamlit.components.v1 as components
+    components.html(_html_with_api, height=920, scrolling=False)
+except Exception:
+    # Fallback: render via markdown iframe jika components tidak tersedia
+    st.markdown(
+        f'<iframe src="http://127.0.0.1:{_dashboard_port}/dashboard_static.html?v={int(time.time())}" '
+        'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
+        unsafe_allow_html=True,
+    )
