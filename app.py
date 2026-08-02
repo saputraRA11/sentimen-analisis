@@ -1,5 +1,6 @@
 from pathlib import Path
 import cgi
+import html as html_lib
 import io
 import json
 import logging
@@ -1075,60 +1076,140 @@ st.markdown(
     header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], [data-testid="stSidebar"] { display: none !important; }
     .stApp { background:#f8f9ff !important; color:#0b1c30 !important; }
     .block-container { padding: 0 !important; margin: 0 !important; max-width: none !important; }
-    .native-predict-wrap { background:#f8f9ff; padding:24px 32px 18px; border-bottom:1px solid #d3e4fe; }
-    .native-predict-inner { max-width:1280px; margin:0 auto; }
-    .native-predict-title { margin:0 0 6px; color:#002752; font-family:'Work Sans', sans-serif; font-size:32px; line-height:40px; font-weight:700; }
-    .native-predict-copy { margin:0 0 18px; color:#434750; font-family:'Public Sans', sans-serif; font-size:14px; line-height:20px; }
-    .native-result { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-top:14px; }
-    .native-result-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px 18px; }
-    .native-result-label { color:#737781; font:700 12px/16px 'Public Sans', sans-serif; letter-spacing:.05em; text-transform:uppercase; }
-    .native-result-value { margin-top:8px; color:#002752; font:700 26px/32px 'Work Sans', sans-serif; word-break:break-word; }
-    div[data-testid="stTextArea"] label { color:#0b1c30 !important; font-weight:700 !important; }
-    div[data-testid="stTextArea"] textarea { background:#ffffff !important; color:#0b1c30 !important; border:1px solid #c3c6d1 !important; border-radius:8px !important; }
-    div[data-testid="stButton"] button { background:#002752 !important; color:#ffffff !important; border-radius:8px !important; border:0 !important; font-weight:700 !important; }
-    iframe { display: block; }
+    .dashboard-shell { min-height:100vh; display:grid; grid-template-columns:260px 1fr; background:#f8f9ff; font-family:'Public Sans', sans-serif; }
+    .dash-side { background:#f8f9ff; border-right:1px solid #c3c6d1; padding:28px 18px; display:flex; flex-direction:column; min-height:100vh; }
+    .dash-brand { color:#002752; font:800 20px/24px 'Work Sans', sans-serif; margin-bottom:4px; }
+    .dash-sub { color:#434750; font:700 12px/16px 'Public Sans', sans-serif; margin-bottom:34px; }
+    .dash-nav { display:flex; flex-direction:column; gap:8px; }
+    .dash-nav-item { border-radius:8px; padding:12px 14px; color:#434750; font:700 13px/18px 'Public Sans', sans-serif; }
+    .dash-nav-item.active { background:#e5eeff; color:#002752; border-right:4px solid #002752; }
+    .dash-spacer { flex:1; }
+    .dash-upload { background:#002752; color:white; border-radius:8px; padding:14px; text-align:center; font:800 13px/18px 'Public Sans', sans-serif; }
+    .dash-main { min-width:0; }
+    .dash-topbar { height:60px; display:flex; align-items:center; padding:0 32px; border-bottom:1px solid #c3c6d1; color:#002752; font:800 18px/24px 'Work Sans', sans-serif; background:#f8f9ff; }
+    .dash-canvas { max-width:1280px; margin:0 auto; padding:40px 36px 56px; }
+    .dash-title { margin:0; color:#002752; font:800 36px/44px 'Work Sans', sans-serif; }
+    .dash-copy { margin:8px 0 0; color:#434750; font:500 14px/20px 'Public Sans', sans-serif; }
+    .kpi-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin:18px 0 0; max-width:900px; }
+    .dash-card { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:22px 24px; }
+    .kpi-label { color:#737781; font:800 12px/16px 'Public Sans', sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+    .kpi-value { color:#002752; font:800 34px/42px 'Work Sans', sans-serif; margin-top:32px; word-break:break-word; }
+    .kpi-note { color:#434750; font:500 12px/16px 'Public Sans', sans-serif; margin-top:4px; }
+    .predict-grid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(320px,.95fr); gap:16px; margin-top:0; }
+    .panel-title { color:#002752; font:800 18px/24px 'Public Sans', sans-serif; margin-bottom:16px; }
+    .result-title { color:#737781; font:800 16px/22px 'Public Sans', sans-serif; letter-spacing:.12em; text-transform:uppercase; border-bottom:1px solid #c3c6d1; padding-bottom:16px; margin-bottom:32px; }
+    .result-box { border:1px solid #c3c6d1; border-radius:8px; padding:18px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .result-aspect { color:#0b1c30; font:800 16px/22px 'Public Sans', sans-serif; }
+    .result-confidence { color:#737781; font:700 13px/18px 'Public Sans', sans-serif; margin-top:3px; }
+    .sentiment-pill { border-radius:999px; padding:10px 18px; font:800 14px/18px 'Public Sans', sans-serif; white-space:nowrap; }
+    .sentiment-positif { background:#e8f6ec; color:#167a38; }
+    .sentiment-negatif { background:#ffdad6; color:#93000a; }
+    .sentiment-netral { background:#e5eeff; color:#003d79; }
+    div[data-testid="stVerticalBlock"] { gap:0 !important; }
+    div[data-testid="stTextArea"] label { color:#002752 !important; font-weight:800 !important; font-size:18px !important; }
+    div[data-testid="stTextArea"] textarea { background:#f8f9ff !important; color:#0b1c30 !important; border:1px solid #c3c6d1 !important; border-radius:8px !important; min-height:220px !important; }
+    div[data-testid="stButton"] { display:flex; justify-content:flex-end; }
+    div[data-testid="stButton"] button { background:#002752 !important; color:#ffffff !important; border-radius:8px !important; border:0 !important; font-weight:800 !important; min-width:150px; }
+    @media (max-width:900px) { .dashboard-shell { grid-template-columns:1fr; } .dash-side { display:none; } .kpi-row,.predict-grid { grid-template-columns:1fr; } }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+if "prediction_result" not in st.session_state:
+    st.session_state.prediction_result = {
+        "ok": True,
+        "aspect": "Layanan Digital",
+        "sentiment": "Positif",
+        "confidence": 0.94,
+        "aspectConfidence": 0.94,
+        "sentimentConfidence": 0.94,
+    }
+
+top_aspect_raw = str(payload["topAspect"].get("aspek", "-"))
+top_aspect_display = "Layanan Digital" if top_aspect_raw == "functional suitability" else top_aspect_raw.title()
+negative_rate = payload["negativeRate"] * 100
+total_display = f"{payload['total']:,}".replace(",", ".")
+top_aspect_count_display = f"{int(payload['topAspect'].get('jumlah', 0)):,}".replace(",", ".")
+
 st.markdown(
-    """
-    <div class="native-predict-wrap">
-      <div class="native-predict-inner">
-        <h1 class="native-predict-title">Prediksi Ulasan ABSA Livin'</h1>
-        <p class="native-predict-copy">Masukkan ulasan untuk menjalankan model default dari folder <code>models/</code>. Tidak perlu upload model.</p>
-      </div>
+    f"""
+    <div class="dashboard-shell">
+      <aside class="dash-side">
+        <div class="dash-brand">ABSA Livin'</div>
+        <div class="dash-sub">Analisis Mandiri</div>
+        <div class="dash-nav">
+          <div class="dash-nav-item active">Prediksi Ulasan</div>
+          <div class="dash-nav-item">Ikhtisar Data</div>
+          <div class="dash-nav-item">Matriks IPA</div>
+          <div class="dash-nav-item">Daftar Ulasan</div>
+        </div>
+        <div class="dash-spacer"></div>
+        <div class="dash-upload">Unggah CSV</div>
+      </aside>
+      <main class="dash-main">
+        <div class="dash-topbar">Dashboard Evaluasi Kualitas Aplikasi Livin' by Mandiri</div>
+        <div class="dash-canvas">
+          <h1 class="dash-title">Prediksi Ulasan</h1>
+          <p class="dash-copy">Analisis sentimen dan aspek secara real-time menggunakan model ABSA.</p>
+          <div class="kpi-row">
+            <div class="dash-card"><div class="kpi-label">Total Ulasan</div><div class="kpi-value">{total_display}</div><div class="kpi-note">Data dianalisis</div></div>
+            <div class="dash-card"><div class="kpi-label">Aspek Dominan</div><div class="kpi-value">{html_lib.escape(top_aspect_display)}</div><div class="kpi-note">{top_aspect_count_display} sebutan</div></div>
+            <div class="dash-card"><div class="kpi-label">Rasio Sentimen Negatif</div><div class="kpi-value">{negative_rate:.1f}%</div><div class="kpi-note">Proporsi keluhan pengguna</div></div>
+          </div>
+          <div class="predict-grid">
+            <div class="dash-card">
+    """,
+    unsafe_allow_html=True,
+)
+
+review_text = st.text_area(
+    "Masukkan Teks Ulasan",
+    placeholder="Ketik atau paste ulasan pengguna di sini...",
+    label_visibility="visible",
+)
+if st.button("Prediksi Ulasan", type="primary"):
+    with st.spinner("Model sedang memproses ulasan..."):
+        st.session_state.prediction_result = predict_with_model(review_text)
+
+result = st.session_state.prediction_result
+if not result.get("ok"):
+    st.error(result.get("message", "Prediksi belum bisa diproses."))
+    result = {
+        "aspect": "Belum tersedia",
+        "sentiment": "Netral",
+        "confidence": 0,
+        "aspectConfidence": 0,
+        "sentimentConfidence": 0,
+    }
+
+sentiment = str(result["sentiment"])
+sentiment_class = sentiment.lower()
+aspect = html_lib.escape(str(result["aspect"]))
+
+st.markdown(
+    f"""
+            </div>
+            <div class="dash-card">
+              <div class="result-title">Hasil Analisis Aspek & Sentimen</div>
+              <div class="result-box">
+                <div>
+                  <div class="result-aspect">{aspect}</div>
+                  <div class="result-confidence">Confidence: {result["confidence"] * 100:.1f}%</div>
+                  <div class="result-confidence">Aspek: {result["aspectConfidence"] * 100:.1f}% | Sentimen: {result["sentimentConfidence"] * 100:.1f}%</div>
+                </div>
+                <div class="sentiment-pill sentiment-{sentiment_class}">{html_lib.escape(sentiment)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-with st.container():
-    st.markdown('<div class="native-predict-wrap"><div class="native-predict-inner">', unsafe_allow_html=True)
-    review_text = st.text_area(
-        "Masukkan teks ulasan",
-        placeholder="Contoh: Aplikasi sering error saat transfer, mohon diperbaiki.",
-        height=96,
-    )
-    if st.button("Prediksi Ulasan", type="primary"):
-        with st.spinner("Model sedang memproses ulasan..."):
-            result = predict_with_model(review_text)
-        if result.get("ok"):
-            st.markdown(
-                f"""
-                <div class="native-result">
-                  <div class="native-result-card"><div class="native-result-label">Aspek</div><div class="native-result-value">{result["aspect"]}</div></div>
-                  <div class="native-result-card"><div class="native-result-label">Sentimen</div><div class="native-result-value">{result["sentiment"]}</div></div>
-                  <div class="native-result-card"><div class="native-result-label">Confidence</div><div class="native-result-value">{result["confidence"] * 100:.1f}%</div></div>
-                </div>
-                <p class="native-predict-copy" style="margin-top:10px;">Aspek: {result["aspectConfidence"] * 100:.1f}% | Sentimen: {result["sentimentConfidence"] * 100:.1f}%</p>
-                """,
-                unsafe_allow_html=True,
-            )
-        else:
-            st.error(result.get("message", "Prediksi belum bisa diproses."))
-    st.markdown('</div></div>', unsafe_allow_html=True)
+st.stop()
 
 html = build_html(payload)
 static_path = Path("dashboard_static.html")
