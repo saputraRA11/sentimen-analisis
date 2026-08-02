@@ -761,6 +761,7 @@ def compute_payload(df):
 
 def build_html(payload):
     data_json = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    model_upload_style = "" if ALLOW_MODEL_UPLOADS else "display:none;"
     return f"""
 <!DOCTYPE html>
 <html lang="id">
@@ -905,7 +906,7 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
       <button class="nav-btn" data-page="detail"><span class="material-symbols-outlined">table_view</span>Daftar Ulasan</button>
     </nav>
     <div class="side-actions">
-      <div class="model-upload-box">
+      <div class="model-upload-box" style="{model_upload_style}">
         <h4>Unggah Model</h4>
         <p class="format-note">Opsional. Jika kosong, dashboard memakai artefak lokal bawaan.</p>
         <div class="model-file-list">
@@ -1030,12 +1031,14 @@ document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>
 document.getElementById('downloadTemplate').addEventListener('click',()=>{{ const blob=new Blob([currentData.templateCsv],{{type:'text/csv'}}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='template_upload_ulasan.csv'; a.click(); }});
 function parseCsv(text) {{ const lines=text.trim().replaceAll(String.fromCharCode(13),'').split(String.fromCharCode(10)); const headers=lines[0].split(',').map(h=>h.trim()); return lines.slice(1).map(line=>{{ const vals=line.match(/("[^"]*(?:""[^"]*)*"|[^,]*)/g).filter((_,i)=>i%2===0).map(v=>v.replace(/^"|"$/g,'').replace(/""/g,'"')); const obj={{}}; headers.forEach((h,i)=>obj[h]=vals[i]||''); return obj; }}); }}
 
+const modelUploadEnabled = {str(ALLOW_MODEL_UPLOADS).lower()};
 const modelFileNameBindings = [
   ['modelAspekFile','modelAspekName'], ['modelSentimenFile','modelSentimenName'], ['tokenizerFile','tokenizerName'],
   ['encoderAspekFile','encoderAspekName'], ['encoderSentimenFile','encoderSentimenName']
 ];
 modelFileNameBindings.forEach(([inputId,nameId])=>{{
   const input=document.getElementById(inputId); const label=document.getElementById(nameId);
+  if(!input || !label) return;
   input.addEventListener('change',()=>{{ label.textContent=input.files[0]?.name || 'Belum dipilih'; }});
 }});
 async function uploadModelFiles() {{
@@ -1052,7 +1055,8 @@ async function uploadModelFiles() {{
     status.textContent='Upload berhasil. Tekan Prediksi Ulasan untuk memakai model terbaru.';
   }} catch(err) {{ status.textContent='Upload gagal: '+err.message+'. Jalankan ulang Streamlit lalu coba lagi.'; }}
 }}
-document.getElementById('uploadModelBtn').addEventListener('click', uploadModelFiles);
+const uploadModelBtn = document.getElementById('uploadModelBtn');
+if(modelUploadEnabled && uploadModelBtn) uploadModelBtn.addEventListener('click', uploadModelFiles);
 
 document.getElementById('csvInput').addEventListener('change', e=>{{ const file=e.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=()=>{{ const rows=parseCsv(reader.result); const reviews=rows.map(r=>{{ const sent=r.sentimen||r.Sentimen||r.sentimen_llm; return {{...r, Ulasan:r.ulasan||r.Ulasan||r.final_text, Aspek:(r.aspek||r.Aspek||r.aspek_llm||'').toLowerCase(), Sentimen:sent==='1'||sent==='Positif'?'Positif':sent==='2'||sent==='Netral'?'Netral':sent==='0'||sent==='Negatif'?'Negatif':sent}}; }}).filter(r=>r.Ulasan); currentData=computeDashboardData(reviews); alert('CSV berhasil dibaca dan kalkulasi dashboard sudah diperbarui.'); showPage('overview'); }}; reader.readAsText(file); }});
 showPage('prediksi');
