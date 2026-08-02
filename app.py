@@ -957,10 +957,9 @@ def build_html(payload):
   --grid-gutter:20px; --container-padding:32px; --sidebar-width:260px;
 }}
 * {{ box-sizing:border-box; }}
-html, body {{ margin:0; min-height:100%; background:var(--background); color:var(--on-surface); font-family:'Public Sans', sans-serif; font-size:14px; line-height:20px; }}
-body {{ overflow:hidden; }}
-.app {{ min-height:100vh; display:flex; }}
-.sidebar {{ width:var(--sidebar-width); height:100vh; position:fixed; left:0; top:0; background:var(--surface); border-right:1px solid var(--outline-variant); display:flex; flex-direction:column; padding:12px 16px; z-index:20; overflow-y:auto; overscroll-behavior:contain; }}
+html, body {{ margin:0; padding:0; background:var(--background); color:var(--on-surface); font-family:'Public Sans', sans-serif; font-size:14px; line-height:20px; }}
+.app {{ display:flex; align-items:flex-start; min-height:100vh; }}
+.sidebar {{ width:var(--sidebar-width); flex-shrink:0; position:sticky; top:0; height:100vh; background:var(--surface); border-right:1px solid var(--outline-variant); display:flex; flex-direction:column; padding:12px 16px; z-index:20; overflow-y:auto; overscroll-behavior:contain; }}
 .brand {{ display:flex; align-items:center; gap:12px; padding:8px 8px 30px; }}
 .brand h1 {{ margin:0; font-family:'Work Sans'; font-size:20px; line-height:28px; font-weight:700; color:var(--primary); }}
 .brand p {{ margin:0; font-size:12px; line-height:16px; letter-spacing:.05em; font-weight:600; color:var(--on-surface-variant); }}
@@ -974,7 +973,7 @@ body {{ overflow:hidden; }}
 .secondary-link {{ border:0; background:transparent; color:var(--on-surface-variant); display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; font:600 12px/16px 'Public Sans'; cursor:pointer; }}
 .secondary-link:hover {{ background:var(--surface-container); }}
 .format-note {{ color:var(--on-surface-variant); font-size:10px; line-height:14px; padding:0 4px 10px; }}
-.main {{ margin-left:var(--sidebar-width); width:calc(100% - var(--sidebar-width)); height:100vh; overflow:auto; }}
+.main {{ flex:1; width:calc(100% - var(--sidebar-width)); min-height:100vh; }}
 .topbar {{ position:sticky; top:0; z-index:10; height:60px; background:var(--surface); border-bottom:1px solid var(--outline-variant); display:flex; align-items:center; justify-content:space-between; padding:12px var(--container-padding); }}
 .topbar h2 {{ margin:0; font-family:'Work Sans'; font-size:20px; line-height:28px; color:var(--primary); font-weight:700; }}
 .canvas {{ max-width:1280px; margin:0 auto; padding:var(--container-padding); display:flex; flex-direction:column; gap:24px; }}
@@ -1067,9 +1066,8 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
 .page-btn:disabled {{ opacity:.42; cursor:not-allowed; }}
 .page-info {{ min-width:120px; text-align:center; color:var(--on-surface-variant); font:700 12px/16px 'Public Sans'; }}
 @media (max-width: 980px) {{ 
-  body {{ overflow:auto; }} 
   .sidebar {{ position:relative; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--outline-variant); padding-bottom:16px; }} 
-  .main {{ margin-left:0; width:100%; height:auto; overflow:visible; }} 
+  .main {{ width:100%; }} 
   .app {{ display:block; }} 
   .kpi-grid {{ grid-template-columns:repeat(2,1fr); }} 
   .kpi-grid.prediction {{ grid-template-columns:1fr; }} 
@@ -1657,12 +1655,16 @@ _component_js = """
               if (typeof processInitialPrediction === "function") processInitialPrediction();
           }
       }
-      sendMessageToStreamlit("streamlit:setFrameHeight", { height: 920 });
     }
   });
+  function sendFrameHeight() {
+    sendMessageToStreamlit("streamlit:setFrameHeight", { height: document.documentElement.scrollHeight || document.body.scrollHeight });
+  }
+  const observer = new ResizeObserver(() => sendFrameHeight());
   window.onload = function() {
     sendMessageToStreamlit("streamlit:componentReady", { apiVersion: 1 });
-    sendMessageToStreamlit("streamlit:setFrameHeight", { height: 920 });
+    observer.observe(document.body);
+    setTimeout(sendFrameHeight, 100);
   };
 </script>
 """
