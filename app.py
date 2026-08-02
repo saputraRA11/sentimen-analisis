@@ -17,6 +17,7 @@ from urllib.request import urlopen
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import threading
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
@@ -1329,10 +1330,4 @@ def _dashboard_server_is_alive():
 if not _dashboard_server_is_alive():
     _start_dashboard_server()
 
-iframe_version = int(time.time())
-dashboard_static_base_url = os.environ.get("DASHBOARD_STATIC_URL", "http://127.0.0.1:8765").rstrip("/")
-st.markdown(
-    f'<iframe src="{dashboard_static_base_url}/dashboard_static.html?v={iframe_version}" '
-    'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
-    unsafe_allow_html=True,
-)
+components.html(html, height=920, scrolling=True)
