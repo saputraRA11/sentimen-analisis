@@ -1077,23 +1077,28 @@ showPage('prediksi');
 st.markdown(
     """
     <style>
-    :root { --navy:#002752; --ink:#0b1c30; --muted:#737781; --line:#d8dde8; --canvas:#f7f8fd; }
+    @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Work+Sans:wght@600;700&display=swap');
+    :root {
+      --navy:#002752; --ink:#0b1c30; --muted:#737781; --line:#c3c6d1; --canvas:#f8f9ff;
+      --primary-container:#003d79; --surface-container:#e5eeff; --surface-low:#eff4ff;
+      --yellow:#fcb812; --positive:#16a34a; --neutral:#335f9c; --negative:#ba1a1a;
+    }
     header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"] { display:none !important; }
-    html, body, [class*="css"] { font-family:Arial, sans-serif; }
+    html, body, [class*="css"] { font-family:'Public Sans', Arial, sans-serif; }
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background:var(--canvas) !important; color:var(--ink) !important; }
-    .block-container { max-width:940px !important; padding:0 34px 54px !important; }
+    .block-container { max-width:1280px !important; padding:0 32px 64px !important; }
 
-    section[data-testid="stSidebar"] { width:184px !important; min-width:184px !important; background:var(--canvas) !important; border-right:1px solid var(--line); }
-    section[data-testid="stSidebar"] > div { width:184px !important; }
+    section[data-testid="stSidebar"] { width:260px !important; min-width:260px !important; background:var(--canvas) !important; border-right:1px solid var(--line); }
+    section[data-testid="stSidebar"] > div { width:260px !important; }
     [data-testid="stSidebarContent"] { padding:0 !important; }
     [data-testid="stSidebarHeader"] { display:none !important; }
     [data-testid="stSidebarUserContent"] { padding:25px 12px 22px !important; }
     [data-testid="stSidebarCollapseButton"] { display:none !important; }
-    .side-brand { color:var(--navy); font-size:19px; line-height:22px; font-weight:900; margin:0 6px; }
-    .side-sub { color:#454b57; font-size:11px; line-height:16px; font-weight:700; margin:1px 6px 24px; }
+    .side-brand { color:var(--navy); font-family:'Work Sans', sans-serif; font-size:20px; line-height:28px; font-weight:700; margin:0 8px; }
+    .side-sub { color:#434750; font-size:12px; line-height:16px; letter-spacing:.05em; font-weight:600; margin:0 8px 30px; }
     .side-nav { display:flex; flex-direction:column; gap:5px; }
     .side-nav-item { color:#4c515c; border-radius:7px; padding:10px 11px; font-size:12px; line-height:18px; font-weight:700; }
-    .side-nav-item.active { color:var(--navy); background:#e8effc; border-right:4px solid var(--navy); }
+    .side-nav-item.active { color:var(--navy); background:var(--surface-low); border-right:4px solid var(--navy); }
     .nav-icon { display:inline-block; width:22px; color:var(--navy); }
     .side-section-title { color:var(--ink); font-size:12px; font-weight:800; margin:27px 6px 3px; }
     .side-helper { color:#656b76; font-size:9px; line-height:13px; margin:0 6px 12px; }
@@ -1101,25 +1106,26 @@ st.markdown(
     .artifact > div { min-width:0; }
     .artifact strong { display:block; color:var(--ink); font-size:9px; line-height:12px; }
     .artifact > div span { display:block; max-width:105px; overflow:hidden; color:#68707d; font-size:8px; line-height:11px; text-overflow:ellipsis; white-space:nowrap; }
-    .artifact-check { flex:0 0 auto; width:23px; height:23px; display:grid; place-items:center; border-radius:6px; background:#ffb900; color:var(--navy) !important; font-size:13px !important; font-weight:900; }
+    .artifact-check { flex:0 0 auto; width:30px; height:30px; display:grid; place-items:center; border:1px solid var(--line); border-radius:8px; background:var(--yellow); color:var(--navy) !important; font-size:14px !important; font-weight:900; }
     .model-ready { color:#136f37; background:#e6f5eb; border-radius:7px; padding:9px 10px; margin-top:9px; font-size:10px; font-weight:800; text-align:center; }
     .csv-button { background:var(--navy); color:white; border-radius:7px; padding:11px; text-align:center; margin-top:27px; font-size:11px; font-weight:800; }
     .download-template { color:#4c515c; font-size:10px; font-weight:700; margin:22px 8px 0; }
 
-    .dash-topbar { box-sizing:border-box; width:calc(100vw - 184px); height:54px; display:flex; align-items:center; color:var(--navy); font-size:16px; line-height:22px; font-weight:900; border-bottom:1px solid var(--line); margin-left:calc(-34px - max(0px, (100vw - 1124px) / 2)); padding:0 28px; white-space:nowrap; }
-    .page-head { padding-top:26px; }
-    .dash-title { margin:0; color:var(--navy); font-size:32px; line-height:39px; font-weight:900; }
-    .dash-copy { margin:3px 0 14px; color:#424853; font-size:13px; line-height:19px; }
-    .kpi-card { min-height:130px; box-sizing:border-box; background:white; border:1px solid #e1e5ed; border-radius:7px; padding:17px 18px; }
-    [data-testid="stHorizontalBlock"]:has(.kpi-card) { max-width:81%; }
-    .kpi-label { color:#737781; font:800 12px/16px 'Public Sans', sans-serif; letter-spacing:.08em; text-transform:uppercase; }
-    .kpi-value { color:#002752; font:800 30px/35px 'Work Sans', sans-serif; margin-top:25px; word-break:break-word; }
+    .dash-topbar { box-sizing:border-box; width:calc(100vw - 260px); height:60px; display:flex; align-items:center; color:var(--navy); font-family:'Work Sans', sans-serif; font-size:20px; line-height:28px; font-weight:700; border-bottom:1px solid var(--line); margin-left:-32px; padding:12px 32px; white-space:nowrap; }
+    .page-head { padding-top:32px; }
+    .dash-title { margin:0 0 8px; color:var(--navy); font-family:'Work Sans', sans-serif; font-size:36px; line-height:44px; font-weight:700; letter-spacing:-.02em; }
+    .dash-copy { margin:0 0 24px; color:#434750; font-size:14px; line-height:20px; }
+    .kpi-card { min-height:128px; box-sizing:border-box; background:white; border:1px solid #e2e8f0; border-radius:8px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,.02); }
+    [data-testid="stHorizontalBlock"]:has(.kpi-card) { max-width:100%; gap:20px !important; }
+    [data-testid="stHorizontalBlock"]:has(.prediction-kpi) { max-width:680px; }
+    .kpi-label { color:#737781; font:600 12px/16px 'Public Sans', sans-serif; letter-spacing:.05em; text-transform:uppercase; }
+    .kpi-value { color:#002752; font:700 36px/44px 'Work Sans', sans-serif; margin-top:14px; word-break:break-word; }
     .kpi-note { color:#434750; font:500 12px/16px 'Public Sans', sans-serif; margin-top:4px; }
     .prediction-spacer { height:0; }
     [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .panel-title),
-    [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .result-title) { min-height:305px; padding:18px 19px !important; background:white !important; border:1px solid #e1e5ed !important; border-radius:7px !important; box-shadow:none !important; }
-    .panel-title { color:var(--navy); font-size:16px; line-height:22px; font-weight:900; margin:0 0 8px; }
-    .result-title { color:#737781; font-size:15px; line-height:21px; font-weight:900; letter-spacing:.11em; text-transform:uppercase; border-bottom:1px solid #c3c6d1; padding-bottom:13px; margin-bottom:21px; }
+    [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .result-title) { min-height:420px; padding:28px !important; background:white !important; border:1px solid #e2e8f0 !important; border-radius:8px !important; box-shadow:0 4px 12px rgba(0,0,0,.02) !important; }
+    .panel-title { color:var(--navy); font-family:'Work Sans', sans-serif; font-size:18px; line-height:24px; font-weight:600; margin:0 0 18px; }
+    .result-title { color:#737781; font-size:18px; line-height:24px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:32px; }
     .result-box { border:1px solid #c3c6d1; background:#fbfbfe; border-radius:7px; padding:15px; display:flex; align-items:center; justify-content:space-between; gap:13px; }
     .result-aspect { color:#0b1c30; font:800 16px/22px 'Public Sans', sans-serif; }
     .result-confidence { color:#737781; font:700 13px/18px 'Public Sans', sans-serif; margin-top:3px; }
@@ -1129,16 +1135,17 @@ st.markdown(
     .sentiment-negatif { background:#ffdad6; color:#93000a; }
     .sentiment-netral { background:#e5eeff; color:#003d79; }
     div[data-testid="stTextArea"] label { display:none !important; }
-    div[data-testid="stTextArea"] textarea { background:#f8f9ff !important; color:#0b1c30 !important; border:1px solid #c3c6d1 !important; border-radius:7px !important; min-height:175px !important; font-size:13px !important; }
+    div[data-testid="stTextArea"] textarea { background:var(--canvas) !important; color:#0b1c30 !important; border:1px solid var(--line) !important; border-radius:8px !important; min-height:260px !important; padding:16px !important; font:400 14px/20px 'Public Sans', sans-serif !important; }
     div[data-testid="stForm"] { border:0 !important; padding:0 !important; }
     div[data-testid="stFormSubmitButton"] { display:flex; justify-content:flex-end; }
     div[data-testid="stFormSubmitButton"] button { background:var(--navy) !important; color:#fff !important; border:0 !important; border-radius:7px !important; font-size:12px !important; font-weight:800 !important; min-height:38px; min-width:145px; }
     div[data-testid="stFormSubmitButton"] button:hover { background:#06457e !important; color:#fff !important; }
     div[data-testid="stAlert"] { font-size:12px; }
     section[data-testid="stSidebar"] [data-testid="stRadio"] > div { gap:5px !important; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] { width:100%; min-height:38px; box-sizing:border-box; border-radius:7px; padding:8px 9px !important; color:#4c515c; font-size:11px; font-weight:700; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] p { color:#4c515c !important; font-size:11px !important; font-weight:700 !important; }
-    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) { color:var(--navy); background:#e8effc; border-right:4px solid var(--navy); }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] { width:100%; min-height:40px; box-sizing:border-box; border-radius:8px; padding:10px 12px !important; color:#434750; font-size:12px; font-weight:600; letter-spacing:.05em; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] p { color:#434750 !important; font-size:12px !important; line-height:16px !important; font-weight:600 !important; letter-spacing:.05em; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:hover { background:var(--surface-container); }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) { color:var(--navy); background:var(--surface-low); border-right:4px solid var(--navy); }
     section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) p { color:var(--navy) !important; }
     section[data-testid="stSidebar"] label[data-testid="stRadioOption"] > div > div > div:first-child { display:none !important; }
     section[data-testid="stSidebar"] [data-testid="stFileUploader"] { margin-top:24px; }
@@ -1150,11 +1157,60 @@ st.markdown(
     section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] { width:100%; border:0 !important; background:transparent !important; color:#4c515c !important; justify-content:flex-start; padding:5px 7px !important; font-size:10px !important; font-weight:700 !important; }
     .section-title { color:var(--navy); font-size:20px; line-height:27px; font-weight:900; margin:8px 0 13px; }
     .section-copy { color:#555c68; font-size:12px; line-height:18px; margin:-7px 0 15px; }
-    @media (max-width:900px) {
-      section[data-testid="stSidebar"] { display:none !important; }
-      .block-container { padding:0 18px 36px !important; }
-      .dash-topbar { width:100vw; margin-left:-18px; padding:0 18px; font-size:13px; overflow:hidden; }
-      .dash-title { font-size:27px; }
+    .bar-list { display:flex; flex-direction:column; gap:12px; }
+    .bar-row { display:grid; grid-template-columns:190px 1fr 52px; gap:12px; align-items:center; }
+    .bar-label { color:#434750; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .bar-track { background:var(--surface-container); border-radius:999px; height:10px; overflow:hidden; }
+    .bar-fill { background:var(--primary-container); height:100%; border-radius:999px; }
+    .donut-wrap { display:flex; align-items:center; justify-content:center; min-height:260px; }
+    .donut { width:210px; height:210px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--positive) 0 var(--pos), var(--neutral) var(--pos) var(--net), var(--negative) var(--net) 100%); position:relative; }
+    .donut::after { content:''; width:126px; height:126px; border-radius:50%; background:white; position:absolute; }
+    .donut-center { position:relative; z-index:1; text-align:center; }
+    .donut-center b { display:block; font-family:'Work Sans'; font-size:24px; color:var(--navy); }
+    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; }
+    .legend-item { display:flex; gap:8px; align-items:center; color:#434750; font-size:12px; font-weight:600; }
+    .swatch { width:12px; height:12px; border-radius:3px; }
+    .stack-chart { display:flex; flex-direction:column; gap:12px; }
+    .stack-row { display:grid; grid-template-columns:180px 1fr; gap:12px; align-items:center; }
+    .stack-bar { height:22px; border-radius:4px; overflow:hidden; display:flex; background:var(--surface-container); }
+    .seg-pos { background:var(--positive); } .seg-net { background:var(--neutral); } .seg-neg { background:var(--negative); }
+    .ipa-area { height:560px; background:var(--canvas); border:1px solid var(--line); border-radius:4px; position:relative; overflow:hidden; }
+    .quad { position:absolute; width:50%; height:50%; }
+    .quad-a { left:0; top:0; background:rgba(186,26,26,.07); }
+    .quad-b { right:0; top:0; background:rgba(0,39,82,.07); }
+    .quad-c { left:0; bottom:0; background:rgba(115,119,129,.08); }
+    .quad-d { right:0; bottom:0; background:rgba(252,184,18,.12); }
+    .mid-v { position:absolute; top:0; bottom:0; left:50%; border-left:1px dashed var(--muted); }
+    .mid-h { position:absolute; left:0; right:0; top:50%; border-top:1px dashed var(--muted); }
+    .quad-label { position:absolute; z-index:2; font:700 12px/16px 'Public Sans'; letter-spacing:.03em; }
+    .ipa-point { position:absolute; z-index:4; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 4px 10px rgba(0,0,0,.18); transform:translate(-50%, 50%); }
+    .ipa-point.a { background:var(--negative); } .ipa-point.b { background:var(--navy); } .ipa-point.c { background:var(--muted); } .ipa-point.d { background:var(--yellow); }
+    .ipa-point span { position:absolute; left:14px; bottom:10px; white-space:nowrap; background:white; border:1px solid var(--line); border-radius:4px; padding:2px 6px; color:var(--ink); font:600 11px/14px 'Public Sans'; }
+    @media (max-width:980px) {
+      header[data-testid="stHeader"] { display:flex !important; height:48px !important; background:var(--canvas) !important; }
+      div[data-testid="stToolbar"], div[data-testid="stToolbar"] > div, div[data-testid="stToolbar"] > div > div {
+        display:flex !important; width:auto !important; height:auto !important; overflow:visible !important;
+      }
+      div[data-testid="stToolbar"] button:not([data-testid="stExpandSidebarButton"]) { display:none !important; }
+      [data-testid="stSidebarHeader"], [data-testid="stSidebarCollapseButton"] { display:flex !important; }
+      body:has(section[data-testid="stSidebar"][aria-expanded="false"]) [data-testid="stExpandSidebarButton"] {
+        display:flex !important; position:fixed !important; left:8px !important; top:8px !important;
+        width:36px !important; height:36px !important; min-width:36px !important; opacity:1 !important;
+        visibility:visible !important; z-index:10000 !important; color:var(--navy) !important;
+        background:white !important; border:1px solid var(--line) !important; border-radius:8px !important;
+      }
+      body:has(section[data-testid="stSidebar"][aria-expanded="true"]) [data-testid="stExpandSidebarButton"] { display:none !important; }
+      section[data-testid="stSidebar"] { display:block !important; width:260px !important; min-width:260px !important; }
+      section[data-testid="stSidebar"] > div { width:260px !important; }
+      .block-container { max-width:none !important; padding:48px 16px 40px !important; }
+      .dash-topbar { width:calc(100vw - 32px); height:auto; min-height:60px; margin-left:0; padding:12px 16px; font-size:16px; line-height:22px; white-space:normal; }
+      .page-head { padding-top:24px; }
+      .dash-title { font-size:30px; line-height:38px; }
+      [data-testid="stHorizontalBlock"]:has(.kpi-card) { max-width:100%; }
+      .kpi-value { font-size:30px; line-height:38px; }
+      .bar-row, .stack-row { grid-template-columns:110px 1fr; }
+      .ipa-area { height:440px; }
+      .ipa-point span { display:none; }
     }
     </style>
     """,
@@ -1250,9 +1306,80 @@ def render_page_heading(title, copy):
     )
 
 
-def render_kpi(label, value, note):
+def render_kpi(label, value, note, variant=""):
+    card_class = f"kpi-card {variant}".strip()
     st.markdown(
-        f"<div class='kpi-card'><div class='kpi-label'>{html_lib.escape(label)}</div><div class='kpi-value'>{html_lib.escape(value)}</div><div class='kpi-note'>{html_lib.escape(note)}</div></div>",
+        f"<div class='{card_class}'><div class='kpi-label'>{html_lib.escape(label)}</div><div class='kpi-value'>{html_lib.escape(value)}</div><div class='kpi-note'>{html_lib.escape(note)}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_aspect_bars(rows):
+    maximum = max((int(row.get("jumlah", 0)) for row in rows), default=1) or 1
+    bars = "".join(
+        f"<div class='bar-row'><div class='bar-label'>{html_lib.escape(str(row.get('aspek', '-')).title())}</div><div class='bar-track'><div class='bar-fill' style='width:{int(row.get('jumlah', 0)) / maximum * 100:.2f}%'></div></div><div>{int(row.get('jumlah', 0)):,}</div></div>"
+        for row in rows
+    )
+    st.markdown(f"<div class='bar-list'>{bars}</div>", unsafe_allow_html=True)
+
+
+def render_sentiment_donut(payload_data):
+    total = max(int(payload_data["total"]), 1)
+    counts = {row["sentimen"]: int(row["jumlah"]) for row in payload_data["sentimentCounts"]}
+    positive_boundary = counts.get("Positif", 0) / total * 100
+    neutral_boundary = (counts.get("Positif", 0) + counts.get("Netral", 0)) / total * 100
+    st.markdown(
+        f"""
+        <div class="donut-wrap">
+          <div class="donut" style="--pos:{positive_boundary:.3f}%;--net:{neutral_boundary:.3f}%">
+            <div class="donut-center"><b>{payload_data['total']:,}</b><span>Total</span></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="legend-item"><i class="swatch" style="background:#16a34a"></i>Positif</span>
+          <span class="legend-item"><i class="swatch" style="background:#335f9c"></i>Netral</span>
+          <span class="legend-item"><i class="swatch" style="background:#ba1a1a"></i>Negatif</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_sentiment_stacks(rows):
+    stacks = []
+    for row in rows:
+        total = max(int(row.get("Positif", 0)) + int(row.get("Netral", 0)) + int(row.get("Negatif", 0)), 1)
+        stacks.append(
+            f"<div class='stack-row'><div class='bar-label'>{html_lib.escape(str(row.get('Aspek', '-')).title())}</div><div class='stack-bar'><div class='seg-pos' style='width:{int(row.get('Positif', 0)) / total * 100:.2f}%'></div><div class='seg-net' style='width:{int(row.get('Netral', 0)) / total * 100:.2f}%'></div><div class='seg-neg' style='width:{int(row.get('Negatif', 0)) / total * 100:.2f}%'></div></div></div>"
+        )
+    st.markdown(f"<div class='stack-chart'>{''.join(stacks)}</div>", unsafe_allow_html=True)
+
+
+def render_ipa_plot(ipa_rows):
+    max_x = max([abs(float(row.get("performance_score", 0))) for row in ipa_rows] + [1])
+    max_y = max([abs(float(row.get("importance_score", 0))) for row in ipa_rows] + [1])
+    points = []
+    for row in ipa_rows:
+        x = max(3, min(97, 50 + float(row.get("performance_score", 0)) / max_x * 47))
+        y = max(3, min(97, 50 + float(row.get("importance_score", 0)) / max_y * 47))
+        quadrant = str(row.get("quadrant", "D")).lower()
+        label = html_lib.escape(str(row.get("Aspek", "-")).title())
+        points.append(
+            f"<div class='ipa-point {quadrant}' style='left:{x:.2f}%;bottom:{y:.2f}%'><span>{label}</span></div>"
+        )
+    st.markdown(
+        f"""
+        <div class="ipa-area">
+          <div class="quad quad-a"></div><div class="quad quad-b"></div>
+          <div class="quad quad-c"></div><div class="quad quad-d"></div>
+          <div class="mid-v"></div><div class="mid-h"></div>
+          <div class="quad-label" style="top:16px;left:16px;color:#ba1a1a">A: Prioritas Utama</div>
+          <div class="quad-label" style="top:16px;right:16px;color:#002752">B: Pertahankan</div>
+          <div class="quad-label" style="bottom:16px;left:16px;color:#737781">C: Prioritas Rendah</div>
+          <div class="quad-label" style="bottom:16px;right:16px;color:#7c5800">D: Berlebihan</div>
+          {''.join(points)}
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -1262,13 +1389,11 @@ st.markdown("<div class='dash-topbar'>Dashboard Evaluasi Kualitas Aplikasi Livin
 if active_page == "Prediksi Ulasan":
     render_page_heading("Prediksi Ulasan", "Analisis sentimen dan aspek secara real-time menggunakan model ABSA.")
 
-    kpi_total, kpi_aspect, kpi_negative = st.columns(3, gap="small")
+    kpi_total, kpi_aspect = st.columns(2, gap="small")
     with kpi_total:
-        render_kpi("Total Ulasan", total_display, "Data dianalisis")
+        render_kpi("Total Ulasan", total_display, "Data dianalisis", "prediction-kpi")
     with kpi_aspect:
-        render_kpi("Aspek Dominan", top_aspect_display, f"{top_aspect_count_display} sebutan")
-    with kpi_negative:
-        render_kpi("Rasio Sentimen Negatif", f"{negative_rate:.1f}%", "Proporsi keluhan pengguna")
+        render_kpi("Aspek Dominan", top_aspect_display, f"{top_aspect_count_display} sebutan", "prediction-kpi")
 
     form_column, result_column = st.columns([1.4, 1], gap="small")
     with form_column:
@@ -1319,52 +1444,49 @@ if active_page == "Prediksi Ulasan":
                 )
 
 elif active_page == "Ikhtisar Data":
-    render_page_heading("Ikhtisar Data", "Ringkasan distribusi aspek dan sentimen pada data aktif.")
-    overview_total, overview_positive, overview_priority = st.columns(3, gap="small")
+    render_page_heading("Ikhtisar Data", "Ringkasan komprehensif sentimen ulasan pengguna Livin' by Mandiri.")
+    overview_total, overview_positive, overview_negative, overview_aspect = st.columns(4, gap="small")
     with overview_total:
-        render_kpi("Total Ulasan", total_display, "Data aktif")
+        render_kpi("Total Ulasan", total_display, "Data dianalisis")
     with overview_positive:
-        render_kpi("Sentimen Positif", f"{payload['positiveRate'] * 100:.1f}%", "Dari seluruh ulasan")
-    with overview_priority:
-        render_kpi("Aspek Prioritas", str(payload["priorityCount"]), "Kuadran prioritas utama")
+        render_kpi("Sentimen Positif", f"{payload['positiveRate'] * 100:.1f}%", "Proporsi ulasan positif")
+    with overview_negative:
+        render_kpi("Sentimen Negatif", f"{payload['negativeRate'] * 100:.1f}%", "Proporsi keluhan pengguna")
+    with overview_aspect:
+        render_kpi("Aspek Teratas", top_aspect_display, f"{top_aspect_count_display} sebutan")
 
-    aspect_col, sentiment_col = st.columns([1.35, 1], gap="small")
-    with aspect_col:
-        with st.container(border=True):
-            st.markdown("<div class='section-title'>Distribusi Aspek</div>", unsafe_allow_html=True)
-            aspect_chart = pd.DataFrame(payload["aspectCounts"])
-            if aspect_chart.empty:
-                st.info("Belum ada data aspek.")
-            else:
-                st.bar_chart(aspect_chart.set_index("aspek")["jumlah"], color="#0B4F8A")
+    sentiment_col, aspect_col = st.columns([1, 2], gap="small")
     with sentiment_col:
         with st.container(border=True):
-            st.markdown("<div class='section-title'>Distribusi Sentimen</div>", unsafe_allow_html=True)
-            sentiment_chart = pd.DataFrame(payload["sentimentCounts"])
-            if sentiment_chart.empty:
-                st.info("Belum ada data sentimen.")
-            else:
-                st.bar_chart(sentiment_chart.set_index("sentimen")["jumlah"], color="#FFB900")
+            st.markdown("<div class='result-title'>Komposisi Sentimen</div>", unsafe_allow_html=True)
+            render_sentiment_donut(payload)
+    with aspect_col:
+        with st.container(border=True):
+            st.markdown("<div class='result-title'>Distribusi Aspek</div>", unsafe_allow_html=True)
+            render_aspect_bars(payload["aspectCounts"])
 
-    st.markdown("<div class='section-title'>Aspek × Sentimen</div>", unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame(payload["cross"]), width="stretch", hide_index=True)
+    with st.container(border=True):
+        st.markdown("<div class='result-title'>Sentimen per Aspek</div>", unsafe_allow_html=True)
+        render_sentiment_stacks(payload["cross"])
 
 elif active_page == "Matriks IPA":
-    render_page_heading("Matriks IPA", "Pemetaan aspek berdasarkan tingkat kepentingan dan performa sentimen positif.")
+    render_page_heading("Analisis Kepentingan dan Kinerja (IPA)", "Evaluasi aspek aplikasi berdasarkan tingkat kepentingan pengguna vs kinerja aktual.")
     ipa_df = pd.DataFrame(payload["ipa"])
     if ipa_df.empty:
         st.info("Belum ada data yang dapat dipetakan.")
     else:
+        ipa_total, ipa_priority, ipa_keep, ipa_center = st.columns(4, gap="small")
+        with ipa_total:
+            render_kpi("Total Aspek", str(len(ipa_df)), "Dianalisis")
+        with ipa_priority:
+            render_kpi("Prioritas Utama (A)", str(int((ipa_df["quadrant"] == "A").sum())), "Perlu perbaikan")
+        with ipa_keep:
+            render_kpi("Pertahankan (B)", str(int((ipa_df["quadrant"] == "B").sum())), "Kinerja relatif baik")
+        with ipa_center:
+            render_kpi("Titik Pusat", "0,00 ; 0,00", "Z-Score Performance dan Importance")
         with st.container(border=True):
-            st.markdown("<div class='section-title'>Peta Importance–Performance</div>", unsafe_allow_html=True)
-            st.scatter_chart(
-                ipa_df,
-                x="performance_score",
-                y="importance_score",
-                color="quadrant",
-                size="importance",
-                width="stretch",
-            )
+            st.markdown("<div class='result-title'>Plot Sebar Matriks IPA</div>", unsafe_allow_html=True)
+            render_ipa_plot(payload["ipa"])
         ipa_table = ipa_df[["rank", "Aspek", "quadrant", "importance", "performance", "negative_rate"]].copy()
         ipa_table.columns = ["Peringkat", "Aspek", "Kuadran", "Jumlah", "Rasio Positif", "Rasio Negatif"]
         ipa_table["Rasio Positif"] = (ipa_table["Rasio Positif"] * 100).round(1).astype(str) + "%"
