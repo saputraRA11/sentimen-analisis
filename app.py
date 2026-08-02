@@ -628,15 +628,7 @@ def get_prediction_job(job_id):
     return job
 
 
-@st.cache_data
-def load_dataset():
-    candidate_files = [DEFAULT_DASHBOARD_FILE, DEFAULT_LABELED_FILE]
-    source_file = next((path for path in candidate_files if path.exists()), None)
-    if source_file is None:
-        return pd.DataFrame(columns=["Ulasan", "Aspek", "Sentimen"])
-
-    raw = pd.read_csv(source_file)
-
+def normalize_dataset(raw):
     normalized_cols = {str(col).strip().lower(): col for col in raw.columns}
     if {"ulasan", "aspek", "sentimen"}.issubset(normalized_cols):
         df = raw.copy()
@@ -654,8 +646,7 @@ def load_dataset():
             "Sentimen": raw["sentimen_llm"],
         })
     else:
-        st.error("Format CSV tidak sesuai. Gunakan kolom ulasan, aspek, sentimen.")
-        st.stop()
+        raise ValueError("Format CSV tidak sesuai. Gunakan kolom ulasan, aspek, sentimen.")
 
     df["Ulasan"] = df["Ulasan"].astype(str)
     df["Aspek"] = df["Aspek"].map(clean_aspect)
@@ -676,6 +667,20 @@ def load_dataset():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df.dropna(subset=["Ulasan"])
+
+
+@st.cache_data
+def load_dataset():
+    candidate_files = [DEFAULT_DASHBOARD_FILE, DEFAULT_LABELED_FILE]
+    source_file = next((path for path in candidate_files if path.exists()), None)
+    if source_file is None:
+        return pd.DataFrame(columns=["Ulasan", "Aspek", "Sentimen"])
+
+    try:
+        return normalize_dataset(pd.read_csv(source_file))
+    except ValueError as exc:
+        st.error(str(exc))
+        st.stop()
 
 
 def compute_payload(df):
@@ -1069,9 +1074,6 @@ showPage('prediksi');
 """
 
 
-df = load_dataset()
-payload = compute_payload(df)
-
 st.markdown(
     """
     <style>
@@ -1133,6 +1135,21 @@ st.markdown(
     div[data-testid="stFormSubmitButton"] button { background:var(--navy) !important; color:#fff !important; border:0 !important; border-radius:7px !important; font-size:12px !important; font-weight:800 !important; min-height:38px; min-width:145px; }
     div[data-testid="stFormSubmitButton"] button:hover { background:#06457e !important; color:#fff !important; }
     div[data-testid="stAlert"] { font-size:12px; }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] > div { gap:5px !important; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] { width:100%; min-height:38px; box-sizing:border-box; border-radius:7px; padding:8px 9px !important; color:#4c515c; font-size:11px; font-weight:700; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] p { color:#4c515c !important; font-size:11px !important; font-weight:700 !important; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) { color:var(--navy); background:#e8effc; border-right:4px solid var(--navy); }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"]:has(input:checked) p { color:var(--navy) !important; }
+    section[data-testid="stSidebar"] label[data-testid="stRadioOption"] > div > div > div:first-child { display:none !important; }
+    section[data-testid="stSidebar"] [data-testid="stFileUploader"] { margin-top:24px; }
+    section[data-testid="stSidebar"] [data-testid="stFileUploader"] label { color:var(--navy) !important; font-size:11px !important; font-weight:800 !important; }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] { min-height:44px !important; padding:5px !important; background:#eef2f9 !important; border:1px dashed #9ea8b8 !important; }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] { display:none !important; }
+    section[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] button { width:100%; min-height:32px; background:var(--navy) !important; color:white !important; border:0 !important; font-size:10px !important; font-weight:800 !important; }
+    section[data-testid="stSidebar"] [data-testid="stDownloadButton"] button,
+    section[data-testid="stSidebar"] [data-testid="stBaseButton-secondary"] { width:100%; border:0 !important; background:transparent !important; color:#4c515c !important; justify-content:flex-start; padding:5px 7px !important; font-size:10px !important; font-weight:700 !important; }
+    .section-title { color:var(--navy); font-size:20px; line-height:27px; font-weight:900; margin:8px 0 13px; }
+    .section-copy { color:#555c68; font-size:12px; line-height:18px; margin:-7px 0 15px; }
     @media (max-width:900px) {
       section[data-testid="stSidebar"] { display:none !important; }
       .block-container { padding:0 18px 36px !important; }
@@ -1148,12 +1165,20 @@ st.sidebar.markdown(
     """
     <div class="side-brand">ABSA Livin'</div>
     <div class="side-sub">Analisis Mandiri</div>
-    <div class="side-nav">
-      <div class="side-nav-item active"><span class="nav-icon">◉</span>Prediksi Ulasan</div>
-      <div class="side-nav-item"><span class="nav-icon">▦</span>Ikhtisar Data</div>
-      <div class="side-nav-item"><span class="nav-icon">▦</span>Matriks IPA</div>
-      <div class="side-nav-item"><span class="nav-icon">▤</span>Daftar Ulasan</div>
-    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+page_option = st.sidebar.radio(
+    "Navigasi",
+    ["◉  Prediksi Ulasan", "▦  Ikhtisar Data", "▦  Matriks IPA", "▤  Daftar Ulasan"],
+    label_visibility="collapsed",
+    key="dashboard_page",
+)
+active_page = page_option.split("  ", 1)[-1]
+
+st.sidebar.markdown(
+    """
     <div class="side-section-title">Model Prediksi</div>
     <div class="side-helper">Model bawaan dimuat otomatis dari repositori.</div>
     <div class="artifact"><div><strong>Model aspek</strong><span>model_aspek_raw.keras</span></div><span class="artifact-check">✓</span></div>
@@ -1162,12 +1187,46 @@ st.sidebar.markdown(
     <div class="artifact"><div><strong>Encoder aspek</strong><span>encoder_aspek.joblib</span></div><span class="artifact-check">✓</span></div>
     <div class="artifact"><div><strong>Encoder sentimen</strong><span>encoder_sentimen.joblib</span></div><span class="artifact-check">✓</span></div>
     <div class="model-ready">✓ Model default aktif</div>
-    <div class="csv-button">▣ &nbsp; Unggah CSV</div>
-    <div class="side-helper" style="margin-top:8px">Unggah file CSV dengan format: ulasan, aspek, sentimen.</div>
-    <div class="download-template">⇩ &nbsp; Unduh Template</div>
     """,
     unsafe_allow_html=True,
 )
+
+if "dashboard_df" not in st.session_state:
+    st.session_state.dashboard_df = load_dataset()
+if "csv_uploader_version" not in st.session_state:
+    st.session_state.csv_uploader_version = 0
+
+uploaded_csv = st.sidebar.file_uploader(
+    "Unggah CSV",
+    type=["csv"],
+    key=f"dashboard_csv_{st.session_state.csv_uploader_version}",
+    help="Gunakan kolom ulasan, aspek, dan sentimen.",
+)
+if uploaded_csv is not None:
+    try:
+        st.session_state.dashboard_df = normalize_dataset(
+            pd.read_csv(io.BytesIO(uploaded_csv.getvalue()))
+        )
+        st.sidebar.success(f"{uploaded_csv.name} berhasil dimuat.")
+    except Exception as exc:
+        st.sidebar.error(f"CSV belum dapat dibaca: {exc}")
+
+if st.sidebar.button("Gunakan data bawaan", width="stretch"):
+    st.session_state.dashboard_df = load_dataset()
+    st.session_state.csv_uploader_version += 1
+    st.rerun()
+
+template_csv = ",".join(TEMPLATE_COLUMNS) + "\n"
+st.sidebar.download_button(
+    "⇩  Unduh Template",
+    data=template_csv.encode("utf-8"),
+    file_name="template_ulasan_absa.csv",
+    mime="text/csv",
+    width="stretch",
+)
+
+df = st.session_state.dashboard_df.copy()
+payload = compute_payload(df)
 
 if "prediction_result" not in st.session_state:
     st.session_state.prediction_result = None
@@ -1178,80 +1237,167 @@ negative_rate = payload["negativeRate"] * 100
 total_display = f"{payload['total']:,}".replace(",", ".")
 top_aspect_count_display = f"{int(payload['topAspect'].get('jumlah', 0)):,}".replace(",", ".")
 
+
+def render_page_heading(title, copy):
+    st.markdown(
+        f"""
+        <div class="page-head">
+          <h1 class="dash-title">{html_lib.escape(title)}</h1>
+          <p class="dash-copy">{html_lib.escape(copy)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_kpi(label, value, note):
+    st.markdown(
+        f"<div class='kpi-card'><div class='kpi-label'>{html_lib.escape(label)}</div><div class='kpi-value'>{html_lib.escape(value)}</div><div class='kpi-note'>{html_lib.escape(note)}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 st.markdown("<div class='dash-topbar'>Dashboard Evaluasi Kualitas Aplikasi Livin' by Mandiri</div>", unsafe_allow_html=True)
-st.markdown(
-    """
-    <div class="page-head">
-      <h1 class="dash-title">Prediksi Ulasan</h1>
-      <p class="dash-copy">Analisis sentimen dan aspek secara real-time menggunakan model ABSA.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
 
-kpi_total, kpi_aspect, kpi_negative = st.columns(3, gap="small")
-with kpi_total:
-    st.markdown(
-        f"<div class='kpi-card'><div class='kpi-label'>Total Ulasan</div><div class='kpi-value'>{total_display}</div><div class='kpi-note'>Data dianalisis</div></div>",
-        unsafe_allow_html=True,
-    )
-with kpi_aspect:
-    st.markdown(
-        f"<div class='kpi-card'><div class='kpi-label'>Aspek Dominan</div><div class='kpi-value'>{html_lib.escape(top_aspect_display)}</div><div class='kpi-note'>{top_aspect_count_display} sebutan</div></div>",
-        unsafe_allow_html=True,
-    )
-with kpi_negative:
-    st.markdown(
-        f"<div class='kpi-card'><div class='kpi-label'>Rasio Sentimen Negatif</div><div class='kpi-value'>{negative_rate:.1f}%</div><div class='kpi-note'>Proporsi keluhan pengguna</div></div>",
-        unsafe_allow_html=True,
-    )
+if active_page == "Prediksi Ulasan":
+    render_page_heading("Prediksi Ulasan", "Analisis sentimen dan aspek secara real-time menggunakan model ABSA.")
 
-form_column, result_column = st.columns([1.4, 1], gap="small")
-with form_column:
-    with st.container(border=True):
-        st.markdown("<div class='panel-title'>Masukkan Teks Ulasan</div>", unsafe_allow_html=True)
-        with st.form("prediction_form", clear_on_submit=False):
-            review_text = st.text_area(
-                "Masukkan Teks Ulasan",
-                placeholder="Ketik atau paste ulasan pengguna di sini...",
-                label_visibility="collapsed",
-            )
-            submitted = st.form_submit_button("▣  Prediksi Ulasan", type="primary")
-        if submitted:
-            if not review_text.strip():
-                st.warning("Masukkan teks ulasan terlebih dahulu.")
+    kpi_total, kpi_aspect, kpi_negative = st.columns(3, gap="small")
+    with kpi_total:
+        render_kpi("Total Ulasan", total_display, "Data dianalisis")
+    with kpi_aspect:
+        render_kpi("Aspek Dominan", top_aspect_display, f"{top_aspect_count_display} sebutan")
+    with kpi_negative:
+        render_kpi("Rasio Sentimen Negatif", f"{negative_rate:.1f}%", "Proporsi keluhan pengguna")
+
+    form_column, result_column = st.columns([1.4, 1], gap="small")
+    with form_column:
+        with st.container(border=True):
+            st.markdown("<div class='panel-title'>Masukkan Teks Ulasan</div>", unsafe_allow_html=True)
+            with st.form("prediction_form", clear_on_submit=False):
+                review_text = st.text_area(
+                    "Masukkan Teks Ulasan",
+                    placeholder="Ketik atau paste ulasan pengguna di sini...",
+                    label_visibility="collapsed",
+                )
+                submitted = st.form_submit_button("▣  Prediksi Ulasan", type="primary")
+            if submitted:
+                if not review_text.strip():
+                    st.warning("Masukkan teks ulasan terlebih dahulu.")
+                else:
+                    with st.spinner("Model sedang memproses ulasan..."):
+                        st.session_state.prediction_result = predict_with_model(review_text)
+
+    with result_column:
+        with st.container(border=True):
+            st.markdown("<div class='result-title'>Hasil Analisis Aspek &amp; Sentimen</div>", unsafe_allow_html=True)
+            result = st.session_state.prediction_result
+            if result is None:
+                st.markdown(
+                    "<div class='result-empty'>Hasil prediksi akan tampil di sini setelah teks ulasan dianalisis.<br><br>Model default dari repositori sudah aktif dan tidak perlu diunggah ulang.</div>",
+                    unsafe_allow_html=True,
+                )
+            elif not result.get("ok"):
+                st.error(result.get("message", "Prediksi belum bisa diproses."))
             else:
-                with st.spinner("Model sedang memproses ulasan..."):
-                    st.session_state.prediction_result = predict_with_model(review_text)
+                sentiment = str(result["sentiment"])
+                sentiment_class = sentiment.lower()
+                result_aspect_raw = str(result["aspect"])
+                result_aspect = "Layanan Digital" if result_aspect_raw == "functional suitability" else result_aspect_raw.title()
+                st.markdown(
+                    f"""
+                    <div class="result-box">
+                      <div>
+                        <div class="result-aspect">{html_lib.escape(result_aspect)}</div>
+                        <div class="result-confidence">Confidence: {result['confidence'] * 100:.1f}%</div>
+                        <div class="result-confidence">Aspek: {result['aspectConfidence'] * 100:.1f}% &nbsp;|&nbsp; Sentimen: {result['sentimentConfidence'] * 100:.1f}%</div>
+                      </div>
+                      <div class="sentiment-pill sentiment-{sentiment_class}">{html_lib.escape(sentiment)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-with result_column:
-    with st.container(border=True):
-        st.markdown("<div class='result-title'>Hasil Analisis Aspek &amp; Sentimen</div>", unsafe_allow_html=True)
-        result = st.session_state.prediction_result
-        if result is None:
-            st.markdown(
-                "<div class='result-empty'>Hasil prediksi akan tampil di sini setelah teks ulasan dianalisis.<br><br>Model default dari repositori sudah aktif dan tidak perlu diunggah ulang.</div>",
-                unsafe_allow_html=True,
+elif active_page == "Ikhtisar Data":
+    render_page_heading("Ikhtisar Data", "Ringkasan distribusi aspek dan sentimen pada data aktif.")
+    overview_total, overview_positive, overview_priority = st.columns(3, gap="small")
+    with overview_total:
+        render_kpi("Total Ulasan", total_display, "Data aktif")
+    with overview_positive:
+        render_kpi("Sentimen Positif", f"{payload['positiveRate'] * 100:.1f}%", "Dari seluruh ulasan")
+    with overview_priority:
+        render_kpi("Aspek Prioritas", str(payload["priorityCount"]), "Kuadran prioritas utama")
+
+    aspect_col, sentiment_col = st.columns([1.35, 1], gap="small")
+    with aspect_col:
+        with st.container(border=True):
+            st.markdown("<div class='section-title'>Distribusi Aspek</div>", unsafe_allow_html=True)
+            aspect_chart = pd.DataFrame(payload["aspectCounts"])
+            if aspect_chart.empty:
+                st.info("Belum ada data aspek.")
+            else:
+                st.bar_chart(aspect_chart.set_index("aspek")["jumlah"], color="#0B4F8A")
+    with sentiment_col:
+        with st.container(border=True):
+            st.markdown("<div class='section-title'>Distribusi Sentimen</div>", unsafe_allow_html=True)
+            sentiment_chart = pd.DataFrame(payload["sentimentCounts"])
+            if sentiment_chart.empty:
+                st.info("Belum ada data sentimen.")
+            else:
+                st.bar_chart(sentiment_chart.set_index("sentimen")["jumlah"], color="#FFB900")
+
+    st.markdown("<div class='section-title'>Aspek × Sentimen</div>", unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(payload["cross"]), width="stretch", hide_index=True)
+
+elif active_page == "Matriks IPA":
+    render_page_heading("Matriks IPA", "Pemetaan aspek berdasarkan tingkat kepentingan dan performa sentimen positif.")
+    ipa_df = pd.DataFrame(payload["ipa"])
+    if ipa_df.empty:
+        st.info("Belum ada data yang dapat dipetakan.")
+    else:
+        with st.container(border=True):
+            st.markdown("<div class='section-title'>Peta Importance–Performance</div>", unsafe_allow_html=True)
+            st.scatter_chart(
+                ipa_df,
+                x="performance_score",
+                y="importance_score",
+                color="quadrant",
+                size="importance",
+                width="stretch",
             )
-        elif not result.get("ok"):
-            st.error(result.get("message", "Prediksi belum bisa diproses."))
-        else:
-            sentiment = str(result["sentiment"])
-            sentiment_class = sentiment.lower()
-            aspect = html_lib.escape(str(result["aspect"]))
-            st.markdown(
-                f"""
-                <div class="result-box">
-                  <div>
-                    <div class="result-aspect">{aspect}</div>
-                    <div class="result-confidence">Confidence: {result['confidence'] * 100:.1f}%</div>
-                    <div class="result-confidence">Aspek: {result['aspectConfidence'] * 100:.1f}% &nbsp;|&nbsp; Sentimen: {result['sentimentConfidence'] * 100:.1f}%</div>
-                  </div>
-                  <div class="sentiment-pill sentiment-{sentiment_class}">{html_lib.escape(sentiment)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        ipa_table = ipa_df[["rank", "Aspek", "quadrant", "importance", "performance", "negative_rate"]].copy()
+        ipa_table.columns = ["Peringkat", "Aspek", "Kuadran", "Jumlah", "Rasio Positif", "Rasio Negatif"]
+        ipa_table["Rasio Positif"] = (ipa_table["Rasio Positif"] * 100).round(1).astype(str) + "%"
+        ipa_table["Rasio Negatif"] = (ipa_table["Rasio Negatif"] * 100).round(1).astype(str) + "%"
+        st.markdown("<div class='section-title'>Prioritas Perbaikan</div>", unsafe_allow_html=True)
+        st.dataframe(ipa_table, width="stretch", hide_index=True)
+
+else:
+    render_page_heading("Daftar Ulasan", "Telusuri dan saring seluruh ulasan pada data aktif.")
+    filter_search, filter_aspect, filter_sentiment = st.columns([1.4, 1, 1], gap="small")
+    with filter_search:
+        search_text = st.text_input("Cari ulasan", placeholder="Ketik kata kunci...")
+    with filter_aspect:
+        selected_aspects = st.multiselect("Aspek", sorted(df["Aspek"].dropna().unique().tolist()))
+    with filter_sentiment:
+        selected_sentiments = st.multiselect("Sentimen", ["Positif", "Netral", "Negatif"])
+
+    filtered_df = df.copy()
+    if search_text:
+        filtered_df = filtered_df[filtered_df["Ulasan"].str.contains(search_text, case=False, na=False)]
+    if selected_aspects:
+        filtered_df = filtered_df[filtered_df["Aspek"].isin(selected_aspects)]
+    if selected_sentiments:
+        filtered_df = filtered_df[filtered_df["Sentimen"].isin(selected_sentiments)]
+
+    st.caption(f"Menampilkan {len(filtered_df):,} dari {len(df):,} ulasan".replace(",", "."))
+    st.dataframe(filtered_df, width="stretch", hide_index=True, height=430)
+    st.download_button(
+        "Unduh hasil filter",
+        data=filtered_df.to_csv(index=False).encode("utf-8"),
+        file_name="daftar_ulasan_terfilter.csv",
+        mime="text/csv",
+    )
 
 st.stop()
 
