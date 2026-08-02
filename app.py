@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import cgi
 import io
@@ -30,7 +29,9 @@ except Exception:
     load_model = None
     pad_sequences = None
 
-st.set_page_config(page_title="Dashboard ABSA Livin", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Dashboard ABSA Livin", layout="wide", initial_sidebar_state="collapsed"
+)
 
 DEFAULT_DASHBOARD_FILE = Path("data_test_prediksi.csv")
 DEFAULT_LABELED_FILE = Path("V4_LABELED_DATASET_FINAL.csv")
@@ -84,11 +85,7 @@ logger = setup_dashboard_logger()
 
 
 def log_event(event, **fields):
-    safe_fields = {
-        key: value
-        for key, value in fields.items()
-        if value is not None
-    }
+    safe_fields = {key: value for key, value in fields.items() if value is not None}
     detail = " | ".join(f"{key}={value}" for key, value in safe_fields.items())
     logger.info("%s%s", event, f" | {detail}" if detail else "")
 
@@ -99,6 +96,7 @@ def log_trace(message, **fields):
 
 def elapsed_ms(start_time):
     return int((time.perf_counter() - start_time) * 1000)
+
 
 ASPECT_MAP = {
     "availability": "reliability",
@@ -173,15 +171,23 @@ def load_keras_compatible(path):
 
         try:
             log_event("keras_load_retry_without_quantization_config", file=path)
-            with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(tmp_path, "w") as target:
+            with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(
+                tmp_path, "w"
+            ) as target:
                 for name in source.namelist():
                     data = source.read(name)
                     if name == "config.json":
-                        config = strip_keras_incompatible_config(json.loads(data.decode("utf-8")))
+                        config = strip_keras_incompatible_config(
+                            json.loads(data.decode("utf-8"))
+                        )
                         data = json.dumps(config).encode("utf-8")
                     target.writestr(name, data)
             model = load_model(tmp_path, compile=False)
-            log_event("keras_load_done_after_retry", file=path, duration_ms=elapsed_ms(start_time))
+            log_event(
+                "keras_load_done_after_retry",
+                file=path,
+                duration_ms=elapsed_ms(start_time),
+            )
             return model
         except Exception:
             logger.exception("keras_load_retry_failed | file=%s", path)
@@ -236,15 +242,23 @@ def load_model_artifacts():
                 "loading": True,
                 "message": "Model sedang disiapkan. Tunggu beberapa saat.",
             }
-        _model_status.update({
-            "state": "loading",
-            "ready": False,
-            "message": "Model sedang disiapkan.",
-            "missing": [],
-            "missing_runtime": [],
-        })
+        _model_status.update(
+            {
+                "state": "loading",
+                "ready": False,
+                "message": "Model sedang disiapkan.",
+                "missing": [],
+                "missing_runtime": [],
+            }
+        )
 
-    required = [MODEL_ASPEK_FILE, MODEL_SENTIMEN_FILE, TOKENIZER_FILE, ENCODER_ASPEK_FILE, ENCODER_SENTIMEN_FILE]
+    required = [
+        MODEL_ASPEK_FILE,
+        MODEL_SENTIMEN_FILE,
+        TOKENIZER_FILE,
+        ENCODER_ASPEK_FILE,
+        ENCODER_SENTIMEN_FILE,
+    ]
     missing = [path.name for path in required if not path.exists()]
     missing_runtime = []
     if joblib is None:
@@ -252,7 +266,11 @@ def load_model_artifacts():
     if load_model is None or pad_sequences is None:
         missing_runtime.append("tensorflow")
     if missing or missing_runtime:
-        artifacts = {"ready": False, "missing": missing, "missing_runtime": missing_runtime}
+        artifacts = {
+            "ready": False,
+            "missing": missing,
+            "missing_runtime": missing_runtime,
+        }
         log_event(
             "model_artifacts_missing",
             missing=",".join(missing),
@@ -268,8 +286,14 @@ def load_model_artifacts():
         return artifacts
 
     try:
-        log_event("model_artifacts_load_start", max_len_config=MODEL_CONFIG_FILE.exists())
-        config = joblib.load(MODEL_CONFIG_FILE) if MODEL_CONFIG_FILE.exists() else {"MAX_LEN": 50}
+        log_event(
+            "model_artifacts_load_start", max_len_config=MODEL_CONFIG_FILE.exists()
+        )
+        config = (
+            joblib.load(MODEL_CONFIG_FILE)
+            if MODEL_CONFIG_FILE.exists()
+            else {"MAX_LEN": 50}
+        )
         artifacts = {
             "ready": True,
             "model_aspek": load_keras_compatible(MODEL_ASPEK_FILE),
@@ -284,11 +308,17 @@ def load_model_artifacts():
             duration_ms=elapsed_ms(start_time),
             max_len=artifacts["max_len"],
             aspek_classes=len(getattr(artifacts["encoder_aspek"], "classes_", [])),
-            sentimen_classes=len(getattr(artifacts["encoder_sentimen"], "classes_", [])),
+            sentimen_classes=len(
+                getattr(artifacts["encoder_sentimen"], "classes_", [])
+            ),
             tokenizer_vocab=len(getattr(artifacts["tokenizer"], "word_index", {})),
         )
     except Exception as exc:
-        artifacts = {"ready": False, "message": "Model gagal dimuat.", "detail": str(exc)}
+        artifacts = {
+            "ready": False,
+            "message": "Model gagal dimuat.",
+            "detail": str(exc),
+        }
         logger.exception("model_artifacts_load_failed")
         _set_model_status(
             state="error",
@@ -300,15 +330,17 @@ def load_model_artifacts():
 
     with _model_lock:
         _model_artifacts = artifacts
-        _model_status.update({
-            "state": "ready",
-            "ready": True,
-            "message": "Model siap digunakan.",
-            "missing": [],
-            "missing_runtime": [],
-            "detail": "",
-            "loaded_at": time.time(),
-        })
+        _model_status.update(
+            {
+                "state": "ready",
+                "ready": True,
+                "message": "Model siap digunakan.",
+                "missing": [],
+                "missing_runtime": [],
+                "detail": "",
+                "loaded_at": time.time(),
+            }
+        )
     return artifacts
 
 
@@ -329,15 +361,17 @@ def reset_model_cache():
     global _model_artifacts
     with _model_lock:
         _model_artifacts = None
-        _model_status.update({
-            "state": "idle",
-            "message": "Model belum dimuat.",
-            "ready": False,
-            "missing": [],
-            "missing_runtime": [],
-            "detail": "",
-            "loaded_at": None,
-        })
+        _model_status.update(
+            {
+                "state": "idle",
+                "message": "Model belum dimuat.",
+                "ready": False,
+                "missing": [],
+                "missing_runtime": [],
+                "detail": "",
+                "loaded_at": None,
+            }
+        )
 
 
 def preload_model_async(force=False):
@@ -359,7 +393,12 @@ def predict_with_model(review_text, job_id=None):
         text_words=len(text.split()),
     )
     log_trace("Prediksi dimulai", job_id=job_id, tahap="mulai", panjang_teks=len(text))
-    update_prediction_job(job_id, stage="mulai", stage_message="Prediksi dimulai.", stage_started_at=time.time())
+    update_prediction_job(
+        job_id,
+        stage="mulai",
+        stage_message="Prediksi dimulai.",
+        stage_started_at=time.time(),
+    )
 
     artifacts = load_model_artifacts()
     if not artifacts.get("ready"):
@@ -381,11 +420,18 @@ def predict_with_model(review_text, job_id=None):
         return {"ok": False, "message": "Teks ulasan masih kosong."}
 
     try:
-        update_prediction_job(job_id, stage="tokenisasi", stage_message="Mengubah teks menjadi sequence token.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="tokenisasi",
+            stage_message="Mengubah teks menjadi sequence token.",
+            stage_started_at=time.time(),
+        )
         tokenize_start = time.perf_counter()
         log_trace("Tokenisasi teks dimulai", job_id=job_id, tahap="tokenisasi")
         seq = artifacts["tokenizer"].texts_to_sequences([text])
-        x = pad_sequences(seq, maxlen=artifacts["max_len"], padding="post", truncating="post")
+        x = pad_sequences(
+            seq, maxlen=artifacts["max_len"], padding="post", truncating="post"
+        )
         non_zero_tokens = int(np.count_nonzero(x))
         log_event(
             "prediction_tokenized",
@@ -404,7 +450,12 @@ def predict_with_model(review_text, job_id=None):
             bentuk_input=tuple(x.shape),
         )
 
-        update_prediction_job(job_id, stage="prediksi_aspek", stage_message="Model aspek sedang menghitung probabilitas.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="prediksi_aspek",
+            stage_message="Model aspek sedang menghitung probabilitas.",
+            stage_started_at=time.time(),
+        )
         aspek_start = time.perf_counter()
         log_event(
             "prediction_aspect_start",
@@ -412,9 +463,18 @@ def predict_with_model(review_text, job_id=None):
             input_shape=tuple(x.shape),
             max_len=artifacts["max_len"],
         )
-        log_trace("Prediksi aspek dimulai", job_id=job_id, tahap="prediksi_aspek", bentuk_input=tuple(x.shape))
+        log_trace(
+            "Prediksi aspek dimulai",
+            job_id=job_id,
+            tahap="prediksi_aspek",
+            bentuk_input=tuple(x.shape),
+        )
         with _predict_lock:
-            log_trace("Lock prediksi didapat untuk model aspek", job_id=job_id, tahap="prediksi_aspek")
+            log_trace(
+                "Lock prediksi didapat untuk model aspek",
+                job_id=job_id,
+                tahap="prediksi_aspek",
+            )
             aspek_prob = artifacts["model_aspek"](x, training=False).numpy()
         log_event(
             "prediction_aspect_raw_output",
@@ -424,7 +484,12 @@ def predict_with_model(review_text, job_id=None):
             max_prob=round(float(np.max(aspek_prob)), 6),
         )
         aspek_idx = np.argmax(aspek_prob, axis=1)
-        update_prediction_job(job_id, stage="decode_aspek", stage_message="Mengubah class index aspek menjadi label.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="decode_aspek",
+            stage_message="Mengubah class index aspek menjadi label.",
+            stage_started_at=time.time(),
+        )
         aspek_label = artifacts["encoder_aspek"].inverse_transform(aspek_idx)[0]
         aspect_confidence = float(np.max(aspek_prob))
         log_event(
@@ -446,7 +511,12 @@ def predict_with_model(review_text, job_id=None):
             confidence=round(aspect_confidence, 6),
         )
 
-        update_prediction_job(job_id, stage="prediksi_sentimen", stage_message="Model sentimen sedang menghitung probabilitas.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="prediksi_sentimen",
+            stage_message="Model sentimen sedang menghitung probabilitas.",
+            stage_started_at=time.time(),
+        )
         sentimen_start = time.perf_counter()
         log_event(
             "prediction_sentiment_start",
@@ -463,8 +533,14 @@ def predict_with_model(review_text, job_id=None):
             aspek_index=int(aspek_idx[0]),
         )
         with _predict_lock:
-            log_trace("Lock prediksi didapat untuk model sentimen", job_id=job_id, tahap="prediksi_sentimen")
-            sentimen_prob = artifacts["model_sentimen"]([x, aspek_idx], training=False).numpy()
+            log_trace(
+                "Lock prediksi didapat untuk model sentimen",
+                job_id=job_id,
+                tahap="prediksi_sentimen",
+            )
+            sentimen_prob = artifacts["model_sentimen"](
+                [x, aspek_idx], training=False
+            ).numpy()
         log_event(
             "prediction_sentiment_raw_output",
             job_id=job_id,
@@ -473,7 +549,12 @@ def predict_with_model(review_text, job_id=None):
             max_prob=round(float(np.max(sentimen_prob)), 6),
         )
         sentimen_idx = np.argmax(sentimen_prob, axis=1)
-        update_prediction_job(job_id, stage="decode_sentimen", stage_message="Mengubah class index sentimen menjadi label.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="decode_sentimen",
+            stage_message="Mengubah class index sentimen menjadi label.",
+            stage_started_at=time.time(),
+        )
         sentimen_raw = artifacts["encoder_sentimen"].inverse_transform(sentimen_idx)[0]
         sentiment_confidence = float(np.max(sentimen_prob))
         result = {
@@ -510,7 +591,12 @@ def predict_with_model(review_text, job_id=None):
             sentiment=result["sentiment"],
             confidence=round(result["confidence"], 6),
         )
-        update_prediction_job(job_id, stage="selesai", stage_message="Prediksi selesai.", stage_started_at=time.time())
+        update_prediction_job(
+            job_id,
+            stage="selesai",
+            stage_message="Prediksi selesai.",
+            stage_started_at=time.time(),
+        )
         log_trace(
             "Prediksi selesai",
             job_id=job_id,
@@ -533,7 +619,12 @@ def start_prediction_job(review_text, run_async=True):
         return {"ok": False, "message": "Teks ulasan masih kosong."}
 
     job_id = uuid.uuid4().hex
-    log_event("prediction_job_created", job_id=job_id, text_chars=len(text), text_words=len(text.split()))
+    log_event(
+        "prediction_job_created",
+        job_id=job_id,
+        text_chars=len(text),
+        text_words=len(text.split()),
+    )
     with _prediction_jobs_lock:
         _prediction_jobs[job_id] = {
             "ok": True,
@@ -557,8 +648,13 @@ def start_prediction_job(review_text, run_async=True):
                 return
             stage = job.get("stage", "-")
             elapsed_total = int(time.time() - job.get("created_at", time.time()))
-            elapsed_stage = int(time.time() - job.get("stage_started_at", job.get("created_at", time.time())))
-            should_report = stage != last_stage or elapsed_total - last_reported_second >= 30
+            elapsed_stage = int(
+                time.time()
+                - job.get("stage_started_at", job.get("created_at", time.time()))
+            )
+            should_report = (
+                stage != last_stage or elapsed_total - last_reported_second >= 30
+            )
             if should_report:
                 log_trace(
                     "Prediksi masih berjalan",
@@ -573,54 +669,82 @@ def start_prediction_job(review_text, run_async=True):
 
     def worker():
         with _prediction_jobs_lock:
-            _prediction_jobs[job_id].update({
-                "state": "running",
-                "message": "Model sedang memproses ulasan.",
-                "stage": "worker_mulai",
-                "stage_message": "Worker prediksi mulai berjalan.",
-                "stage_started_at": time.time(),
-            })
+            _prediction_jobs[job_id].update(
+                {
+                    "state": "running",
+                    "message": "Model sedang memproses ulasan.",
+                    "stage": "worker_mulai",
+                    "stage_message": "Worker prediksi mulai berjalan.",
+                    "stage_started_at": time.time(),
+                }
+            )
         log_event("prediction_job_running", job_id=job_id)
         log_trace("Worker prediksi mulai", job_id=job_id, tahap="worker_mulai")
         try:
             result = predict_with_model(text, job_id=job_id)
             with _prediction_jobs_lock:
-                _prediction_jobs[job_id].update({
-                    "state": "done" if result.get("ok") else "error",
-                    "result": result,
-                    "message": result.get("message", "Prediksi selesai."),
-                    "finished_at": time.time(),
-                })
-            log_event("prediction_job_finished", job_id=job_id, state="done" if result.get("ok") else "error")
-            log_trace("Worker prediksi selesai", job_id=job_id, status="done" if result.get("ok") else "error")
+                _prediction_jobs[job_id].update(
+                    {
+                        "state": "done" if result.get("ok") else "error",
+                        "result": result,
+                        "message": result.get("message", "Prediksi selesai."),
+                        "finished_at": time.time(),
+                    }
+                )
+            log_event(
+                "prediction_job_finished",
+                job_id=job_id,
+                state="done" if result.get("ok") else "error",
+            )
+            log_trace(
+                "Worker prediksi selesai",
+                job_id=job_id,
+                status="done" if result.get("ok") else "error",
+            )
         except Exception as exc:
             logger.exception("prediction_job_failed | job_id=%s", job_id)
             with _prediction_jobs_lock:
-                _prediction_jobs[job_id].update({
-                    "state": "error",
-                    "result": {"ok": False, "message": "Prediksi belum bisa diproses oleh server model."},
-                    "message": "Prediksi belum bisa diproses oleh server model.",
-                    "detail": str(exc),
-                    "stage": "error",
-                    "stage_message": "Prediksi gagal. Lihat traceback di log.",
-                    "stage_started_at": time.time(),
-                    "finished_at": time.time(),
-                })
+                _prediction_jobs[job_id].update(
+                    {
+                        "state": "error",
+                        "result": {
+                            "ok": False,
+                            "message": "Prediksi belum bisa diproses oleh server model.",
+                        },
+                        "message": "Prediksi belum bisa diproses oleh server model.",
+                        "detail": str(exc),
+                        "stage": "error",
+                        "stage_message": "Prediksi gagal. Lihat traceback di log.",
+                        "stage_started_at": time.time(),
+                        "finished_at": time.time(),
+                    }
+                )
 
     if run_async:
         threading.Thread(target=monitor, daemon=True).start()
         threading.Thread(target=worker, daemon=True).start()
-    return {"ok": True, "job_id": job_id, "state": "queued", "message": "Prediksi sedang diproses."}
+    return {
+        "ok": True,
+        "job_id": job_id,
+        "state": "queued",
+        "message": "Prediksi sedang diproses.",
+    }
 
 
 def get_prediction_job(job_id):
     with _prediction_jobs_lock:
         job = dict(_prediction_jobs.get(job_id, {}))
     if not job:
-        return {"ok": False, "state": "missing", "message": "Job prediksi tidak ditemukan."}
+        return {
+            "ok": False,
+            "state": "missing",
+            "message": "Job prediksi tidak ditemukan.",
+        }
     now = time.time()
     job["running_seconds"] = int(now - job.get("created_at", now))
-    job["stage_seconds"] = int(now - job.get("stage_started_at", job.get("created_at", now)))
+    job["stage_seconds"] = int(
+        now - job.get("stage_started_at", job.get("created_at", now))
+    )
     return job
 
 
@@ -636,19 +760,23 @@ def load_dataset():
     normalized_cols = {str(col).strip().lower(): col for col in raw.columns}
     if {"ulasan", "aspek", "sentimen"}.issubset(normalized_cols):
         df = raw.copy()
-        df = df.rename(columns={
-            normalized_cols["ulasan"]: "Ulasan",
-            normalized_cols["aspek"]: "Aspek",
-            normalized_cols["sentimen"]: "Sentimen",
-        })
+        df = df.rename(
+            columns={
+                normalized_cols["ulasan"]: "Ulasan",
+                normalized_cols["aspek"]: "Aspek",
+                normalized_cols["sentimen"]: "Sentimen",
+            }
+        )
     elif {"Ulasan", "Aspek", "Sentimen"}.issubset(raw.columns):
         df = raw.copy()
     elif {"final_text", "aspek_llm", "sentimen_llm"}.issubset(raw.columns):
-        df = pd.DataFrame({
-            "Ulasan": raw["final_text"],
-            "Aspek": raw["aspek_llm"],
-            "Sentimen": raw["sentimen_llm"],
-        })
+        df = pd.DataFrame(
+            {
+                "Ulasan": raw["final_text"],
+                "Aspek": raw["aspek_llm"],
+                "Sentimen": raw["sentimen_llm"],
+            }
+        )
     else:
         st.error("Format CSV tidak sesuai. Gunakan kolom ulasan, aspek, sentimen.")
         st.stop()
@@ -677,14 +805,34 @@ def load_dataset():
 def compute_payload(df):
     aspect_counts = df["Aspek"].value_counts().reset_index()
     aspect_counts.columns = ["aspek", "jumlah"]
-    sent_counts = df["Sentimen"].value_counts().reindex(["Positif", "Netral", "Negatif"]).fillna(0).astype(int)
+    sent_counts = (
+        df["Sentimen"]
+        .value_counts()
+        .reindex(["Positif", "Netral", "Negatif"])
+        .fillna(0)
+        .astype(int)
+    )
 
     importance = df.groupby("Aspek").size().reset_index(name="importance")
-    positive = df[df["Sentimen"] == "Positif"].groupby("Aspek").size().reset_index(name="positive")
-    negative = df[df["Sentimen"] == "Negatif"].groupby("Aspek").size().reset_index(name="negative")
-    ipa = importance.merge(positive, on="Aspek", how="left").merge(negative, on="Aspek", how="left")
+    positive = (
+        df[df["Sentimen"] == "Positif"]
+        .groupby("Aspek")
+        .size()
+        .reset_index(name="positive")
+    )
+    negative = (
+        df[df["Sentimen"] == "Negatif"]
+        .groupby("Aspek")
+        .size()
+        .reset_index(name="negative")
+    )
+    ipa = importance.merge(positive, on="Aspek", how="left").merge(
+        negative, on="Aspek", how="left"
+    )
     ipa[["positive", "negative"]] = ipa[["positive", "negative"]].fillna(0)
-    top3_mean = float(ipa["importance"].nlargest(min(3, len(ipa))).mean()) if len(ipa) else 0.0
+    top3_mean = (
+        float(ipa["importance"].nlargest(min(3, len(ipa))).mean()) if len(ipa) else 0.0
+    )
     top3_mean = top3_mean if top3_mean else 1.0
     ipa["negative_rate"] = ipa["negative"] / ipa["importance"]
     ipa["performance"] = ipa["positive"] / ipa["importance"]
@@ -693,10 +841,20 @@ def compute_payload(df):
 
     performance_mean = float(ipa["performance_score_raw"].mean()) if len(ipa) else 0.0
     importance_mean = float(ipa["importance_score_raw"].mean()) if len(ipa) else 0.0
-    performance_std = float(ipa["performance_score_raw"].std(ddof=0)) if len(ipa) else 0.0
+    performance_std = (
+        float(ipa["performance_score_raw"].std(ddof=0)) if len(ipa) else 0.0
+    )
     importance_std = float(ipa["importance_score_raw"].std(ddof=0)) if len(ipa) else 0.0
-    ipa["performance_score"] = (ipa["performance_score_raw"] - performance_mean) / performance_std if performance_std else 0.0
-    ipa["importance_score"] = (ipa["importance_score_raw"] - importance_mean) / importance_std if importance_std else 0.0
+    ipa["performance_score"] = (
+        (ipa["performance_score_raw"] - performance_mean) / performance_std
+        if performance_std
+        else 0.0
+    )
+    ipa["importance_score"] = (
+        (ipa["importance_score_raw"] - importance_mean) / importance_std
+        if importance_std
+        else 0.0
+    )
     x_mid = 0.0
     y_mid = 0.0
 
@@ -710,7 +868,9 @@ def compute_payload(df):
         return "D"
 
     ipa["quadrant"] = ipa.apply(quadrant, axis=1)
-    ipa = ipa.sort_values(["quadrant", "importance"], ascending=[True, False]).reset_index(drop=True)
+    ipa = ipa.sort_values(
+        ["quadrant", "importance"], ascending=[True, False]
+    ).reset_index(drop=True)
     ipa["rank"] = ipa.index + 1
 
     cross = pd.crosstab(df["Aspek"], df["Sentimen"]).reset_index()
@@ -721,7 +881,11 @@ def compute_payload(df):
     total = int(len(df))
     pos = int(sent_counts.get("Positif", 0))
     neg = int(sent_counts.get("Negatif", 0))
-    top_aspect = aspect_counts.iloc[0].to_dict() if len(aspect_counts) else {"aspek": "-", "jumlah": 0}
+    top_aspect = (
+        aspect_counts.iloc[0].to_dict()
+        if len(aspect_counts)
+        else {"aspek": "-", "jumlah": 0}
+    )
     priority = ipa[ipa["quadrant"] == "A"]
 
     reviews = df.to_dict(orient="records")
@@ -747,14 +911,22 @@ def compute_payload(df):
         "topAspect": top_aspect,
         "priorityCount": int(len(priority)),
         "aspectCounts": aspect_counts.to_dict(orient="records"),
-        "sentimentCounts": [{"sentimen": k, "jumlah": int(v)} for k, v in sent_counts.items()],
-        "cross": cross[["Aspek", "Positif", "Netral", "Negatif"]].to_dict(orient="records"),
+        "sentimentCounts": [
+            {"sentimen": k, "jumlah": int(v)} for k, v in sent_counts.items()
+        ],
+        "cross": cross[["Aspek", "Positif", "Netral", "Negatif"]].to_dict(
+            orient="records"
+        ),
         "ipa": ipa.to_dict(orient="records"),
         "xMid": x_mid,
         "yMid": y_mid,
         "reviews": reviews,
         "templateCsv": template,
-        "sourceData": str(DEFAULT_DASHBOARD_FILE if DEFAULT_DASHBOARD_FILE.exists() else DEFAULT_LABELED_FILE),
+        "sourceData": str(
+            DEFAULT_DASHBOARD_FILE
+            if DEFAULT_DASHBOARD_FILE.exists()
+            else DEFAULT_LABELED_FILE
+        ),
     }
 
 
@@ -1083,12 +1255,14 @@ static_path.write_text(html, encoding="utf-8")
 import sys
 import traceback as _tb
 
+
 def _safe_print(msg):
     try:
         print(msg)
         logger.info(msg)
     except Exception:
         pass
+
 
 def _safe_print_exc():
     try:
@@ -1097,7 +1271,9 @@ def _safe_print_exc():
     except Exception:
         pass
 
+
 _server_ref = getattr(st, "_dashboard_server", None)
+
 
 def _start_dashboard_server():
     global _server_ref
@@ -1113,14 +1289,18 @@ def _start_dashboard_server():
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self.send_header(
+                "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"
+            )
             self.send_header("Content-Length", str(len(raw)))
             self.end_headers()
             self.wfile.write(raw)
 
         def end_headers(self):
             if self.path.startswith("/dashboard_static.html"):
-                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+                self.send_header(
+                    "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"
+                )
                 self.send_header("Pragma", "no-cache")
             super().end_headers()
 
@@ -1137,21 +1317,26 @@ def _start_dashboard_server():
                 if parsed.path not in {"/predict-result", "/dashboard_static.html"}:
                     log_event("http_get", path=parsed.path)
                 if parsed.path == "/health":
-                    self.send_json({
-                        "ok": True,
-                        "service": "dashboard_static_server",
-                        "static_exists": static_path.exists(),
-                        "static_path": str(static_path.resolve()),
-                        "timestamp": time.time(),
-                    })
+                    self.send_json(
+                        {
+                            "ok": True,
+                            "service": "dashboard_static_server",
+                            "static_exists": static_path.exists(),
+                            "static_path": str(static_path.resolve()),
+                            "timestamp": time.time(),
+                        }
+                    )
                     return
                 if parsed.path == "/dashboard_static.html":
                     if not static_path.exists():
-                        self.send_json({
-                            "ok": False,
-                            "message": "dashboard_static.html belum dibuat.",
-                            "static_path": str(static_path.resolve()),
-                        }, status=404)
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "message": "dashboard_static.html belum dibuat.",
+                                "static_path": str(static_path.resolve()),
+                            },
+                            status=404,
+                        )
                         return
                     raw = static_path.read_bytes()
                     self.send_response(200)
@@ -1171,20 +1356,42 @@ def _start_dashboard_server():
                     self.send_json(get_prediction_job(job_id))
                     return
                 if parsed.path == "/developer-log":
-                    lines = int((parse_qs(parsed.query).get("lines") or ["80"])[0] or 80)
+                    lines = int(
+                        (parse_qs(parsed.query).get("lines") or ["80"])[0] or 80
+                    )
                     lines = max(10, min(lines, 300))
                     if LOG_FILE.exists():
-                        content = LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
-                        self.send_json({"ok": True, "log_file": str(LOG_FILE.resolve()), "lines": content[-lines:]})
+                        content = LOG_FILE.read_text(
+                            encoding="utf-8", errors="replace"
+                        ).splitlines()
+                        self.send_json(
+                            {
+                                "ok": True,
+                                "log_file": str(LOG_FILE.resolve()),
+                                "lines": content[-lines:],
+                            }
+                        )
                     else:
-                        self.send_json({"ok": False, "message": "File log belum dibuat.", "log_file": str(LOG_FILE.resolve())})
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "message": "File log belum dibuat.",
+                                "log_file": str(LOG_FILE.resolve()),
+                            }
+                        )
                     return
                 return super().do_GET()
             except Exception as exc:
                 _safe_print(f"[dashboard] GET ERROR: {exc}")
                 _safe_print_exc()
                 try:
-                    self.send_json({"ok": False, "message": "Permintaan belum bisa diproses oleh server."}, status=500)
+                    self.send_json(
+                        {
+                            "ok": False,
+                            "message": "Permintaan belum bisa diproses oleh server.",
+                        },
+                        status=500,
+                    )
                 except Exception:
                     pass
 
@@ -1196,13 +1403,17 @@ def _start_dashboard_server():
                     body = self.rfile.read(length).decode("utf-8") if length else "{}"
                     payload = json.loads(body)
                     request_id = uuid.uuid4().hex
-                    self.send_json(predict_with_model(payload.get("text", ""), job_id=request_id))
+                    self.send_json(
+                        predict_with_model(payload.get("text", ""), job_id=request_id)
+                    )
                     return
                 if self.path == "/predict-job":
                     length = int(self.headers.get("Content-Length", "0") or 0)
                     body = self.rfile.read(length).decode("utf-8") if length else "{}"
                     payload = json.loads(body)
-                    result = start_prediction_job(payload.get("text", ""), run_async=False)
+                    result = start_prediction_job(
+                        payload.get("text", ""), run_async=False
+                    )
                     if not result.get("ok") or not result.get("job_id"):
                         self.send_json(result)
                         return
@@ -1216,7 +1427,9 @@ def _start_dashboard_server():
                             stage_message="Prediksi berjalan langsung di request thread.",
                             stage_started_at=time.time(),
                         )
-                        prediction = predict_with_model(payload.get("text", ""), job_id=job_id)
+                        prediction = predict_with_model(
+                            payload.get("text", ""), job_id=job_id
+                        )
                         update_prediction_job(
                             job_id,
                             state="done" if prediction.get("ok") else "error",
@@ -1225,11 +1438,16 @@ def _start_dashboard_server():
                             finished_at=time.time(),
                         )
                     except Exception as exc:
-                        logger.exception("prediction_request_failed | job_id=%s", job_id)
+                        logger.exception(
+                            "prediction_request_failed | job_id=%s", job_id
+                        )
                         update_prediction_job(
                             job_id,
                             state="error",
-                            result={"ok": False, "message": "Prediksi belum bisa diproses oleh server model."},
+                            result={
+                                "ok": False,
+                                "message": "Prediksi belum bisa diproses oleh server model.",
+                            },
                             message="Prediksi belum bisa diproses oleh server model.",
                             detail=str(exc),
                             stage="error",
@@ -1241,9 +1459,19 @@ def _start_dashboard_server():
                 if self.path == "/upload-model":
                     content_type = self.headers.get("Content-Type", "")
                     length = int(self.headers.get("Content-Length", "0") or 0)
-                    log_event("upload_model_request", content_type=content_type, content_length=length)
+                    log_event(
+                        "upload_model_request",
+                        content_type=content_type,
+                        content_length=length,
+                    )
                     if "multipart/form-data" not in content_type or not length:
-                        self.send_json({"ok": False, "message": "Request bukan multipart/form-data."}, status=400)
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "message": "Request bukan multipart/form-data.",
+                            },
+                            status=400,
+                        )
                         return
 
                     form = cgi.FieldStorage(
@@ -1270,22 +1498,48 @@ def _start_dashboard_server():
                         tmp_target.write_bytes(file_content)
                         tmp_target.replace(target)
                         saved.append(target.name)
-                        log_event("upload_model_saved", file=target.name, bytes=len(file_content))
+                        log_event(
+                            "upload_model_saved",
+                            file=target.name,
+                            bytes=len(file_content),
+                        )
                     reset_model_cache()
                     preload_model_async()
                     if not saved:
                         log_event("upload_model_no_valid_files")
-                        self.send_json({"ok": False, "message": "Tidak ada artefak model valid yang diterima."}, status=400)
+                        self.send_json(
+                            {
+                                "ok": False,
+                                "message": "Tidak ada artefak model valid yang diterima.",
+                            },
+                            status=400,
+                        )
                         return
                     log_event("upload_model_done", saved=",".join(saved))
-                    self.send_json({"ok": True, "saved": saved, "message": "Artefak model berhasil diunggah."})
+                    self.send_json(
+                        {
+                            "ok": True,
+                            "saved": saved,
+                            "message": "Artefak model berhasil diunggah.",
+                        }
+                    )
                     return
-                self.send_json({"ok": False, "message": "Alamat endpoint tidak dikenal."}, status=404)
+                self.send_json(
+                    {"ok": False, "message": "Alamat endpoint tidak dikenal."},
+                    status=404,
+                )
             except Exception as exc:
                 _safe_print(f"[upload-model] ERROR: {exc}")
                 _safe_print_exc()
                 try:
-                    self.send_json({"ok": False, "message": "Permintaan belum bisa diproses oleh server model.", "detail": str(exc)}, status=500)
+                    self.send_json(
+                        {
+                            "ok": False,
+                            "message": "Permintaan belum bisa diproses oleh server model.",
+                            "detail": str(exc),
+                        },
+                        status=500,
+                    )
                 except Exception:
                     pass
 
@@ -1303,17 +1557,18 @@ def _start_dashboard_server():
         allow_reuse_port = True
 
     try:
-        server = ReusableServer(("127.0.0.1", 8765), DashboardHandler)
+        server = ReusableServer(("127.0.0.1", 8501), DashboardHandler)
         st._dashboard_server = server
         threading.Thread(target=server.serve_forever, daemon=True).start()
         preload_model_async()
-        _safe_print("[dashboard] Server started on port 8765")
+        _safe_print("[dashboard] Server started on port 8501")
     except OSError as e:
         _safe_print(f"[dashboard] Could not start server: {e}")
 
+
 def _dashboard_server_is_alive():
     try:
-        with urlopen("http://127.0.0.1:8765/health", timeout=1.5) as response:
+        with urlopen("http://127.0.0.1:8501/health", timeout=1.5) as response:
             if response.status != 200:
                 return False
             payload = json.loads(response.read().decode("utf-8"))
@@ -1322,14 +1577,16 @@ def _dashboard_server_is_alive():
         log_event("dashboard_server_healthcheck_failed", detail=str(exc))
         return False
 
+
 if not _dashboard_server_is_alive():
     _start_dashboard_server()
 
 iframe_version = int(time.time())
-dashboard_static_base_url = os.environ.get("DASHBOARD_STATIC_URL", "http://127.0.0.1:8765").rstrip("/")
+dashboard_static_base_url = os.environ.get(
+    "DASHBOARD_STATIC_URL", "http://127.0.0.1:8501"
+).rstrip("/")
 st.markdown(
     f'<iframe src="{dashboard_static_base_url}/dashboard_static.html?v={iframe_version}" '
     'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
     unsafe_allow_html=True,
 )
-
