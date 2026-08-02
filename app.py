@@ -14,6 +14,10 @@ from logging.handlers import RotatingFileHandler
 from urllib.parse import parse_qs, urlparse
 from urllib.request import urlopen
 
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import numpy as np
 import pandas as pd
 import streamlit as st
