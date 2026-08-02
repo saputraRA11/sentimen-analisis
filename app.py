@@ -1595,9 +1595,15 @@ frontend_dir = Path("frontend")
 frontend_dir.mkdir(exist_ok=True)
 index_path = frontend_dir / "index.html"
 
-# Pastikan model di-load di background saat aplikasi mulai
-if not _model_status.get("ready") and _model_status.get("state") == "idle":
-    preload_model_async()
+# Pastikan model di-load saat aplikasi mulai (sinkron pada kunjungan pertama)
+if not _model_status.get("ready"):
+    if _model_status.get("state") == "idle":
+        load_model_artifacts()
+    elif _model_status.get("state") == "loading":
+        # Jika sedang di-load oleh thread lain/pengguna lain, beri waktu sejenak lalu render ulang
+        import time
+        time.sleep(1.5)
+        st.rerun()
 
 # Inject Streamlit Component API dan handler
 _component_js = """
