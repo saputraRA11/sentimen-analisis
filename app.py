@@ -968,6 +968,8 @@ html, body {{ margin:0; padding:0; background:var(--background); color:var(--on-
 .nav button:hover {{ background:var(--surface-container); }}
 .nav button.active {{ color:var(--primary); background:var(--surface-container-low); border-right:4px solid var(--primary); font-weight:700; }}
 .nav .material-symbols-outlined {{ font-size:20px; }}
+@keyframes spin {{ 100% {{ transform: rotate(360deg); }} }}
+.spinner {{ width:18px; height:18px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; display:inline-block; }}
 .side-actions {{ margin-top:28px; display:flex; flex-direction:column; gap:10px; padding-bottom:120px; flex-shrink:0; }}
 .primary-btn {{ border:0; border-radius:8px; background:var(--primary); color:var(--on-primary); padding:11px 14px; font:700 12px/16px 'Public Sans'; letter-spacing:.04em; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }}
 .secondary-link {{ border:0; background:transparent; color:var(--on-surface-variant); display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; font:600 12px/16px 'Public Sans'; cursor:pointer; }}
@@ -1193,10 +1195,20 @@ function resultSummary(aspect, sentiment, confidence, note='') {{ const cls = se
 function bars(rows) {{ const max=Math.max(...rows.map(r=>r.jumlah),1); return `<div class="bar-list">${{rows.map(r=>`<div class="bar-row"><div class="bar-label">${{r.aspek}}</div><div class="bar-track"><div class="bar-fill" style="width:${{r.jumlah/max*100}}%"></div></div><div>${{fmt.format(r.jumlah)}}</div></div>`).join('')}}</div>`; }}
 function donut() {{ const pos=currentData.positiveRate*100; const neg=currentData.negativeRate*100; const net=100-neg; return `<div class="donut-wrap"><div class="donut" style="--pos:${{pos}}%;--net:${{net}}%"><div class="donut-center"><b>${{fmt.format(currentData.total)}}</b><span>Total</span></div></div></div><div class="legend"><span class="legend-item"><i class="swatch" style="background:#16a34a"></i>Positif</span><span class="legend-item"><i class="swatch" style="background:#335f9c"></i>Netral</span><span class="legend-item"><i class="swatch" style="background:#ba1a1a"></i>Negatif</span></div>`; }}
 function stackBars() {{ return `<div class="stack-chart">${{currentData.cross.map(r=>{{ const total=(r.Positif||0)+(r.Netral||0)+(r.Negatif||0)||1; return `<div class="stack-row"><div class="bar-label">${{r.Aspek}}</div><div class="stack-bar"><div class="seg-pos" style="width:${{(r.Positif||0)/total*100}}%"></div><div class="seg-net" style="width:${{(r.Netral||0)/total*100}}%"></div><div class="seg-neg" style="width:${{(r.Negatif||0)/total*100}}%"></div></div></div>` }}).join('')}}</div>`; }}
-function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Analisis sentimen dan aspek secara real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Masukkan Teks Ulasan</h3><textarea id="reviewText" placeholder="Ketik atau paste ulasan pengguna di sini..."></textarea><p id="modelStatusText" class="body-muted" style="margin:14px 0 0">Mengecek kesiapan model...</p><div style="display:flex;justify-content:flex-end;margin-top:28px"><button id="predictBtn" class="primary-btn" onclick="predictReview()" disabled><span class="material-symbols-outlined">analytics</span><span id="predictBtnText">Menyiapkan Model</span></button></div></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Hasil Analisis Aspek & Sentimen</h3><div id="predictionResult"></div></div></div>`; refreshModelStatus(); processInitialPrediction(); }}
+function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Analisis sentimen dan aspek secara real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Masukkan Teks Ulasan</h3><textarea id="reviewText" placeholder="Ketik atau paste ulasan pengguna di sini..."></textarea><p id="modelStatusText" class="body-muted" style="margin:14px 0 0">Mengecek kesiapan model...</p><div style="display:flex;justify-content:flex-end;margin-top:28px"><button id="predictBtn" class="primary-btn" onclick="predictReview()" disabled><span id="predictBtnIcon" class="material-symbols-outlined">analytics</span><span id="predictBtnText">Menyiapkan Model</span></button></div></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Hasil Analisis Aspek & Sentimen</h3><div id="predictionResult"></div></div></div>`; refreshModelStatus(); processInitialPrediction(); }}
 function humanError(message, detail='') {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi belum bisa diproses</div><div class="prediction-result-confidence">${{message}}${{detail?'<br><span style="font-weight:600">'+detail+'</span>':''}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 function processingSummary(message) {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi sedang diproses</div><div class="prediction-result-confidence">${{message}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
-function setPredictButton(enabled, label) {{ const btn=document.getElementById('predictBtn'); const text=document.getElementById('predictBtnText'); if(btn) btn.disabled=!enabled; if(text) text.textContent=label; }}
+function setPredictButton(enabled, label, loading=false) {{ 
+  const btn=document.getElementById('predictBtn'); 
+  const text=document.getElementById('predictBtnText'); 
+  const icon=document.getElementById('predictBtnIcon');
+  if(btn) btn.disabled=!enabled; 
+  if(text) text.textContent=label; 
+  if(icon) {{
+    if(loading) {{ icon.className='spinner'; icon.textContent=''; }}
+    else {{ icon.className='material-symbols-outlined'; icon.textContent='analytics'; }}
+  }}
+}}
 
 function renderPredictionResult(r) {{
   const box = document.getElementById('predictionResult');
@@ -1237,7 +1249,7 @@ function predictReview() {{
     box.innerHTML = humanError('Teks ulasan masih kosong.');
     return;
   }}
-  setPredictButton(false, 'Memproses');
+  setPredictButton(false, 'Memproses...', true);
   box.innerHTML = processingSummary('Memproses teks di server...');
   if(typeof sendData === 'function') {{
     sendData({{ action: 'predict', text: raw, ts: Date.now() }});
