@@ -994,14 +994,14 @@ function resultSummary(aspect, sentiment, confidence, note='') {{ const cls = se
 function bars(rows) {{ const max=Math.max(...rows.map(r=>r.jumlah),1); return `<div class="bar-list">${{rows.map(r=>`<div class="bar-row"><div class="bar-label">${{r.aspek}}</div><div class="bar-track"><div class="bar-fill" style="width:${{r.jumlah/max*100}}%"></div></div><div>${{fmt.format(r.jumlah)}}</div></div>`).join('')}}</div>`; }}
 function donut() {{ const pos=currentData.positiveRate*100; const neg=currentData.negativeRate*100; const net=100-neg; return `<div class="donut-wrap"><div class="donut" style="--pos:${{pos}}%;--net:${{net}}%"><div class="donut-center"><b>${{fmt.format(currentData.total)}}</b><span>Total</span></div></div></div><div class="legend"><span class="legend-item"><i class="swatch" style="background:#16a34a"></i>Positif</span><span class="legend-item"><i class="swatch" style="background:#335f9c"></i>Netral</span><span class="legend-item"><i class="swatch" style="background:#ba1a1a"></i>Negatif</span></div>`; }}
 function stackBars() {{ return `<div class="stack-chart">${{currentData.cross.map(r=>{{ const total=(r.Positif||0)+(r.Netral||0)+(r.Negatif||0)||1; return `<div class="stack-row"><div class="bar-label">${{r.Aspek}}</div><div class="stack-bar"><div class="seg-pos" style="width:${{(r.Positif||0)/total*100}}%"></div><div class="seg-net" style="width:${{(r.Netral||0)/total*100}}%"></div><div class="seg-neg" style="width:${{(r.Negatif||0)/total*100}}%"></div></div></div>` }}).join('')}}</div>`; }}
-function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Analisis sentimen dan aspek secara real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Masukkan Teks Ulasan</h3><textarea id="reviewText" placeholder="Ketik atau paste ulasan pengguna di sini..."></textarea><p id="modelStatusText" class="body-muted" style="margin:14px 0 0">Mengecek kesiapan model...</p><div style="display:flex;justify-content:flex-end;margin-top:28px"><button id="predictBtn" class="primary-btn" onclick="predictReview()" disabled><span class="material-symbols-outlined">analytics</span><span id="predictBtnText">Menyiapkan Model</span></button></div></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Hasil Analisis Aspek & Sentimen</h3><div id="predictionResult">${{resultSummary('functional suitability','Positif',0.94)}}</div></div></div>`; refreshModelStatus(); }}
+function renderPrediksi() {{ document.getElementById('page-prediksi').innerHTML = `${{pageHead('Prediksi Ulasan','Gunakan panel prediksi Streamlit di atas dashboard untuk analisis real-time menggunakan model ABSA.')}}${{predictionKpis()}}<div class="grid-12"><div class="col-7 card panel"><h3 class="headline" style="font-size:18px;line-height:24px;margin-bottom:18px;color:var(--primary)">Prediksi Real-Time</h3><p id="modelStatusText" class="body-muted" style="margin:0">Model bawaan dimuat dari folder models/ pada repo. Form prediksi aktif tersedia di panel Streamlit di atas dashboard.</p></div><div class="col-5 card panel"><h3 class="panel-title" style="font-size:18px;line-height:24px;border-bottom:1px solid var(--outline-variant);padding-bottom:16px;margin-bottom:32px">Status Model</h3><div id="predictionResult">${{processingSummary('Model bawaan digunakan tanpa upload model.')}}</div></div></div>`; refreshModelStatus(); }}
 function humanError(message, detail='') {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi belum bisa diproses</div><div class="prediction-result-confidence">${{message}}${{detail?'<br><span style="font-weight:600">'+detail+'</span>':''}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 function processingSummary(message) {{ return `<div class="prediction-result-card"><div><div class="prediction-result-title">Prediksi sedang diproses</div><div class="prediction-result-confidence">${{message}}</div></div><div class="sentiment-pill netral">Info</div></div>`; }}
 async function readJsonResponse(res) {{ const raw=await res.text(); try {{ return JSON.parse(raw); }} catch(err) {{ return {{ok:false, message:'Server belum mengirim respons prediksi yang valid.', detail:'Biasanya Streamlit perlu dijalankan ulang, endpoint /predict belum aktif, atau artefak model belum lengkap.'}}; }} }}
 function setPredictButton(enabled, label) {{ const btn=document.getElementById('predictBtn'); const text=document.getElementById('predictBtnText'); if(btn) btn.disabled=!enabled; if(text) text.textContent=label; }}
-async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); try {{ const res=await fetch('/model-status'); const out=await readJsonResponse(res); if(out.ready) {{ if(label) label.textContent='Model siap digunakan.'; setPredictButton(true,'Prediksi Ulasan'); return; }} if(label) label.textContent=out.message||'Model sedang disiapkan.'; setPredictButton(false, out.state==='error'?'Model Belum Siap':'Menyiapkan Model'); if(out.state==='idle'||out.state==='loading') setTimeout(refreshModelStatus, 1200); }} catch(err) {{ if(label) label.textContent='Status model belum bisa dicek.'; setPredictButton(false,'Model Belum Siap'); }} }}
+async function refreshModelStatus() {{ const label=document.getElementById('modelStatusText'); if(label) label.textContent='Model bawaan dimuat oleh Streamlit. Gunakan panel prediksi di atas dashboard.'; setPredictButton(false,'Gunakan Panel Streamlit'); }}
 async function pollPredictionResult(jobId, startedAt) {{ const box=document.getElementById('predictionResult'); try {{ const res=await fetch('/predict-result?id='+encodeURIComponent(jobId)); const out=await readJsonResponse(res); if(out.state==='queued'||out.state==='running') {{ const sec=out.running_seconds || Math.max(1, Math.round((Date.now()-startedAt)/1000)); const stage=out.stage_message || out.message || 'Model sedang memproses ulasan.'; const stageName=out.stage ? `Tahap: ${{out.stage}} · ` : ''; box.innerHTML=processingSummary(`${{stageName}}${{stage}} (${{sec}} dtk)`); setTimeout(()=>pollPredictionResult(jobId, startedAt), 700); return; }} if(out.state==='done' && out.result && out.result.ok) {{ const r=out.result; const note=`Aspek: ${{Math.round((r.aspectConfidence||r.confidence||0)*100)}}% · Sentimen: ${{Math.round((r.sentimentConfidence||r.confidence||0)*100)}}%`; box.innerHTML=resultSummary(r.aspect, r.sentiment, r.confidence||0, note); setPredictButton(true,'Prediksi Ulasan'); return; }} const err=(out.result&&out.result.message)||out.message||'Prediksi belum bisa diproses.'; box.innerHTML=humanError(err); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil mengambil hasil prediksi.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
-async function predictReview() {{ const raw=document.getElementById('reviewText').value; const box=document.getElementById('predictionResult'); if(!raw.trim()) {{ box.innerHTML=humanError('Teks ulasan masih kosong.'); return; }} setPredictButton(false,'Memproses'); box.innerHTML=processingSummary('Mengirim ulasan ke server model...'); try {{ const res=await fetch('/predict-job', {{method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{text:raw}})}}); const out=await readJsonResponse(res); if(!res.ok || !out.ok) {{ box.innerHTML=humanError(out.message||'Model belum siap dipakai.'); setPredictButton(true,'Prediksi Ulasan'); refreshModelStatus(); return; }} pollPredictionResult(out.job_id, Date.now()); }} catch(err) {{ box.innerHTML=humanError('Dashboard belum berhasil terhubung ke model.'); setPredictButton(true,'Prediksi Ulasan'); }} }}
+async function predictReview() {{ const box=document.getElementById('predictionResult'); if(box) box.innerHTML=processingSummary('Gunakan panel prediksi Streamlit di atas dashboard.'); }}
 function renderOverview() {{ document.getElementById('page-overview').innerHTML = `${{pageHead('Ikhtisar Data',`Ringkasan komprehensif sentimen ulasan pengguna Livin' by Mandiri.`)}}${{globalKpis()}}<div class="grid-12"><div class="col-4 card panel"><h3 class="panel-title">Komposisi Sentimen</h3>${{donut()}}</div><div class="col-8 card panel"><h3 class="panel-title">Distribusi Aspek</h3>${{bars(currentData.aspectCounts)}}</div><div class="col-12 card panel"><h3 class="panel-title">Sentimen per Aspek</h3>${{stackBars()}}</div></div>`; }}
 function selectIpaAspect(aspect) {{ selectedIpaAspect=aspect; updateIpaSelection(); }}
 function clearIpaAspect() {{ selectedIpaAspect=null; updateIpaSelection(); }}
@@ -1068,6 +1068,41 @@ showPage('prediksi');
 
 df = load_dataset()
 payload = compute_payload(df)
+
+st.markdown(
+    """
+    <div style="padding:24px 32px 0;background:#f8f9ff;">
+      <h1 style="margin:0;color:#002752;font-family:Work Sans, sans-serif;font-size:32px;line-height:40px;">
+        Prediksi Ulasan ABSA Livin'
+      </h1>
+      <p style="margin:8px 0 18px;color:#434750;font-family:Public Sans, sans-serif;">
+        Model default dimuat otomatis dari folder models/ pada repo. Tidak perlu upload model.
+      </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.container():
+    review_text = st.text_area(
+        "Masukkan teks ulasan",
+        placeholder="Contoh: Aplikasi sering error saat transfer, mohon diperbaiki.",
+        height=120,
+    )
+    if st.button("Prediksi Ulasan", type="primary"):
+        with st.spinner("Model sedang memproses ulasan..."):
+            result = predict_with_model(review_text)
+        if result.get("ok"):
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Aspek", result["aspect"])
+            col2.metric("Sentimen", result["sentiment"])
+            col3.metric("Confidence", f"{result['confidence'] * 100:.1f}%")
+            st.caption(
+                f"Aspek: {result['aspectConfidence'] * 100:.1f}% | "
+                f"Sentimen: {result['sentimentConfidence'] * 100:.1f}%"
+            )
+        else:
+            st.error(result.get("message", "Prediksi belum bisa diproses."))
 
 st.markdown(
     """
