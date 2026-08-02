@@ -1591,6 +1591,10 @@ frontend_dir = Path("frontend")
 frontend_dir.mkdir(exist_ok=True)
 index_path = frontend_dir / "index.html"
 
+# Pastikan model di-load di background saat aplikasi mulai
+if not _model_status.get("ready") and _model_status.get("state") == "idle":
+    preload_model_async()
+
 # Inject Streamlit Component API dan handler
 _component_js = """
 <script>
@@ -1598,7 +1602,9 @@ _component_js = """
     window.parent.postMessage({ isStreamlitMessage: true, type: type, ...data }, "*");
   }
   function sendData(data) {
-    sendMessageToStreamlit("streamlit:setComponentValue", { value: data });
+    // Pastikan data yang dikirim adalah objek JSON murni (menghindari DataCloneError)
+    const cleanData = JSON.parse(JSON.stringify(data));
+    sendMessageToStreamlit("streamlit:setComponentValue", { value: cleanData, dataType: "json" });
   }
   window.addEventListener("message", function(event) {
     if (event.data.type === "streamlit:render") {
