@@ -1240,7 +1240,7 @@ function predictReview() {{
   setPredictButton(false, 'Memproses');
   box.innerHTML = processingSummary('Memproses teks di server...');
   if(typeof sendData === 'function') {{
-    sendData({{ action: 'predict', text: raw }});
+    sendData({{ action: 'predict', text: raw, ts: Date.now() }});
   }} else {{
     box.innerHTML = humanError('Koneksi Streamlit Component belum siap.');
   }}
@@ -1676,11 +1676,13 @@ if "dashboard_comp" not in st.session_state:
     st.session_state.dashboard_comp = None
 
 try:
+    import time
     dashboard = components.declare_component("dashboard_ui", path=str(frontend_dir))
     action = dashboard(
         key="dashboard_ui_component",
         predictionResult=st.session_state.get("prediction_result"),
-        modelStatus=get_model_status()
+        modelStatus=get_model_status(),
+        timestamp=time.time()
     )
     
     if action and isinstance(action, dict):
