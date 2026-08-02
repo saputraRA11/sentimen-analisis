@@ -1557,7 +1557,7 @@ def _start_dashboard_server():
         allow_reuse_port = True
 
     try:
-        server = ReusableServer(("127.0.0.1", 8501), DashboardHandler)
+        server = ReusableServer(("0.0.0.0", 8501), DashboardHandler)
         st._dashboard_server = server
         threading.Thread(target=server.serve_forever, daemon=True).start()
         preload_model_async()
