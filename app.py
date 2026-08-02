@@ -1272,11 +1272,12 @@ def _safe_print_exc():
         pass
 
 
-_server_ref = getattr(st, "_dashboard_server", None)
 
-
-def _start_dashboard_server():
-    global _server_ref
+@st.cache_resource
+def _get_or_start_dashboard_server():
+    """Dijalankan hanya sekali per proses (bukan per Streamlit rerun).
+    Mengembalikan port dashboard server yang aktif, atau None jika gagal.
+    """
 
     class DashboardHandler(SimpleHTTPRequestHandler):
         def log_message(self, format, *args):
@@ -1543,14 +1544,6 @@ def _start_dashboard_server():
                 except Exception:
                     pass
 
-    old_server = getattr(st, "_dashboard_server", None)
-    if old_server is not None:
-        try:
-            old_server.shutdown()
-            old_server.server_close()
-            log_event("dashboard_server_old_closed")
-        except Exception:
-            logger.exception("dashboard_server_old_close_failed")
 
     class ReusableServer(ThreadingHTTPServer):
         allow_reuse_address = True
@@ -1559,19 +1552,19 @@ def _start_dashboard_server():
     for _port in [8765, 8766, 8767, 8768, 8769]:
         try:
             server = ReusableServer(("127.0.0.1", _port), DashboardHandler)
-            st._dashboard_server = server
-            st._dashboard_port = _port
             threading.Thread(target=server.serve_forever, daemon=True).start()
             preload_model_async()
             _safe_print(f"[dashboard] Server started on port {_port}")
-            break
+            return _port
         except OSError as e:
             _safe_print(f"[dashboard] Could not start on port {_port}: {e}")
             continue
+    _safe_print("[dashboard] ERROR: Tidak ada port tersedia untuk dashboard server.")
+    return None
 
 
 def _get_dashboard_port():
-    return getattr(st, "_dashboard_port", None)
+    return _get_or_start_dashboard_server()
 
 
 def _dashboard_server_is_alive():
@@ -1589,9 +1582,6 @@ def _dashboard_server_is_alive():
         return False
 
 
-if not _dashboard_server_is_alive():
-    _start_dashboard_server()
-
 _dashboard_port = _get_dashboard_port()
 
 # Inject API base URL ke dalam HTML agar JS bisa akses dashboard server
@@ -1605,9 +1595,9 @@ try:
     import streamlit.components.v1 as components
     components.html(_html_with_api, height=920, scrolling=False)
 except Exception:
-    # Fallback: render via markdown iframe jika components tidak tersedia
     st.markdown(
         f'<iframe src="http://127.0.0.1:{_dashboard_port}/dashboard_static.html?v={int(time.time())}" '
         'style="width:100vw;height:920px;border:0;display:block;margin:0;padding:0;background:#f8f9ff;"></iframe>',
         unsafe_allow_html=True,
     )
+
