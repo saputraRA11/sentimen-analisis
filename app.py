@@ -1068,17 +1068,18 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
 .page-info {{ min-width:120px; text-align:center; color:var(--on-surface-variant); font:700 12px/16px 'Public Sans'; }}
 @media (max-width: 980px) {{ 
   body {{ overflow:auto; }} 
-  .sidebar {{ position:relative; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--outline-variant); padding-bottom:24px; }} 
+  .sidebar {{ position:relative; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--outline-variant); padding-bottom:16px; }} 
   .main {{ margin-left:0; width:100%; height:auto; overflow:visible; }} 
   .app {{ display:block; }} 
   .kpi-grid {{ grid-template-columns:repeat(2,1fr); }} 
   .kpi-grid.prediction {{ grid-template-columns:1fr; }} 
   .col-4,.col-5,.col-7,.col-8,.col-12 {{ grid-column:span 12; }} 
   .filters {{ grid-template-columns:1fr; }} 
-  .side-actions {{ padding-bottom:0; }} 
-  .nav {{ flex-direction:row; flex-wrap:wrap; }} 
-  .nav button {{ width:auto; border-right:0; border-bottom:4px solid transparent; }} 
-  .nav button.active {{ border-right:0; border-bottom:4px solid var(--primary); }} 
+  .side-actions {{ padding-bottom:0; margin-top:12px; }} 
+  .nav {{ flex-direction:row; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; gap:8px; }} 
+  .nav::-webkit-scrollbar {{ display:none; }}
+  .nav button {{ white-space:nowrap; flex-shrink:0; border-radius:999px; background:var(--surface-container); border:0; padding:8px 16px; width:auto; }} 
+  .nav button.active {{ background:var(--primary); color:white; border:0; }} 
 }}
 @media (max-width: 600px) {{
   :root {{ --container-padding: 16px; --grid-gutter: 16px; }}
@@ -1091,6 +1092,7 @@ select, input[type=text] {{ width:100%; border:1px solid var(--outline-variant);
   .stack-bar {{ margin-bottom: 8px; }}
   .ipa-detail-grid {{ grid-template-columns: 1fr; }}
   .table-wrapper {{ overflow-x: auto; width: 100%; display: block; }}
+  .model-upload-box {{ display: none; }} /* Sembunyikan bagian upload model di layar HP */
 }}
 </style>
 </head>
