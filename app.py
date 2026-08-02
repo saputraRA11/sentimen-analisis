@@ -1071,41 +1071,6 @@ payload = compute_payload(df)
 
 st.markdown(
     """
-    <div style="padding:24px 32px 0;background:#f8f9ff;">
-      <h1 style="margin:0;color:#002752;font-family:Work Sans, sans-serif;font-size:32px;line-height:40px;">
-        Prediksi Ulasan ABSA Livin'
-      </h1>
-      <p style="margin:8px 0 18px;color:#434750;font-family:Public Sans, sans-serif;">
-        Model default dimuat otomatis dari folder models/ pada repo. Tidak perlu upload model.
-      </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-with st.container():
-    review_text = st.text_area(
-        "Masukkan teks ulasan",
-        placeholder="Contoh: Aplikasi sering error saat transfer, mohon diperbaiki.",
-        height=120,
-    )
-    if st.button("Prediksi Ulasan", type="primary"):
-        with st.spinner("Model sedang memproses ulasan..."):
-            result = predict_with_model(review_text)
-        if result.get("ok"):
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Aspek", result["aspect"])
-            col2.metric("Sentimen", result["sentiment"])
-            col3.metric("Confidence", f"{result['confidence'] * 100:.1f}%")
-            st.caption(
-                f"Aspek: {result['aspectConfidence'] * 100:.1f}% | "
-                f"Sentimen: {result['sentimentConfidence'] * 100:.1f}%"
-            )
-        else:
-            st.error(result.get("message", "Prediksi belum bisa diproses."))
-
-st.markdown(
-    """
     <style>
     header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], [data-testid="stSidebar"] { display: none !important; }
     .block-container { padding: 0 !important; margin: 0 !important; max-width: none !important; }
